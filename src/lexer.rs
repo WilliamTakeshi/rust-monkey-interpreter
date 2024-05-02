@@ -76,4 +76,61 @@ mod tests {
             assert_eq!(token, expected_token);
         }
     }
+
+    #[test]
+    fn test_next_token_2() {
+        let input = String::from("let five = 5;
+            let ten = 10;
+            let add = fn(x, y) {
+            x + y;
+            };
+            let result = add(five, ten);");
+        let expected_response = vec!(
+            Token::Let,
+            Token::Ident(String::from("five")),
+            Token::Assign,
+            Token::Int(5),
+            Token::Semicolon,
+            Token::Let,
+            Token::Ident(String::from("ten")),
+            Token::Assign,
+            Token::Int(10),
+            Token::Semicolon,
+            Token::Let,
+            Token::Ident(String::from("add")),
+            Token::Assign,
+            Token::Function,
+            Token::Lparen,
+            Token::Ident(String::from("x")),
+            Token::Comma,
+            Token::Ident(String::from("y")),
+            Token::Rparen,
+            Token::Lbrace,
+            Token::Ident(String::from("x")),
+            Token::Plus,
+            Token::Ident(String::from("y")),
+            Token::Semicolon,
+            Token::Rbrace,
+            Token::Semicolon,
+            Token::Let,
+            Token::Ident(String::from("result")),
+            Token::Assign,
+            Token::Ident(String::from("add")),
+            Token::Lparen,
+            Token::Ident(String::from("fivex")),
+            Token::Comma,
+            Token::Ident(String::from("ten")),
+            Token::Rparen,
+            Token::Semicolon,
+            Token::Eof,
+        );
+
+        let mut lexer = Lexer::new(input);
+
+        for expected_token in expected_response {
+            let token = lexer.next_token();
+
+            assert_eq!(token, expected_token);
+        }
+    }
 }

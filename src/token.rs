@@ -6,10 +6,10 @@ pub enum Token {
     Eof,
 
     // Identifiers (add, foobar, x, y)
-    Ident,
+    Ident(String),
 
     // Integer
-    Int,
+    Int(u64),
 
     // Operators
     Assign,
