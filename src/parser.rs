@@ -48,6 +48,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Result<Statement> {
         match self.curr_token {
             Some(Token::Let) => self.parse_let_statement(),
+            Some(Token::Return) => self.parse_return_statement(),
             _ => todo!()
         }
     }
@@ -74,6 +75,22 @@ impl Parser {
 
         statement
     }
+
+    fn parse_return_statement(&mut self) -> Result<Statement> {
+        let statement = match &self.peek_token {
+            Some(_) => Ok(Statement::Return),
+            None => Err(anyhow!("Expected token: {:?}, Found nothing", Token::Ident(String::from("something")))),
+        };
+
+        self.next_token();
+
+        // TODO: Skip until Semicolon 
+        while self.curr_token != Some(Token::Semicolon) {
+            self.next_token();
+        }
+
+        statement
+    }
 }
 
 #[cfg(test)]
@@ -90,15 +107,10 @@ mod tests {
             let foobar = 838383;",
         );
 
-        let mut lexer = Lexer::new(input);
+        let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-
-        if program.len() == 0 {
-            panic!("parse_program returned []");
-        }
-
 
         if program.len() != 3 {
             panic!("program statemens doesn't contain 3 elements, got {}", program.len());
@@ -110,6 +122,33 @@ mod tests {
             let statement = &program[i];
             match statement {
                 Statement::Let(identifier) => assert_eq!(identifier, ident),
+                _ => unreachable!()
+            }
+        } 
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let input = String::from(
+            "return 5;
+            return 10;
+            return 993322;",
+        );
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != 3 {
+            panic!("program statemens doesn't contain 3 elements, got {}", program.len());
+        }
+
+
+        for i in 0..3 {
+            let statement = &program[i];
+            match statement {
+                Statement::Return => assert!(true),
                 _ => unreachable!()
             }
         } 

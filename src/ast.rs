@@ -33,6 +33,7 @@ pub enum Expression {
 #[derive(Debug)]
 pub enum Statement {
     Let(String),
+    Return,
 }
 
 pub type Program = Vec<Statement>;
