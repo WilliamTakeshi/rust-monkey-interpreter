@@ -28,6 +28,12 @@ pub enum Token {
     // Operators
     Assign,
     Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+    Lt,
+    Gt,
 
     // Delimiters
     Comma,

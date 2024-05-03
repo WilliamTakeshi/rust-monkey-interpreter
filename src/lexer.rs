@@ -47,6 +47,12 @@ impl Lexer {
             Some('+') => Token::Plus,
             Some('{') => Token::Lbrace,
             Some('}') => Token::Rbrace,
+            Some('-') => Token::Minus,
+            Some('!') => Token::Bang,
+            Some('*') => Token::Asterisk,
+            Some('/') => Token::Slash,
+            Some('<') => Token::Lt,
+            Some('>') => Token::Gt,
             None => Token::Eof,
             Some(c) => {
                 if is_letter(Some(c)) {
@@ -71,6 +77,12 @@ impl Lexer {
             || token == Token::Lbrace
             || token == Token::Rbrace
             || token == Token::Eof
+            || token == Token::Minus
+            || token == Token::Bang
+            || token == Token::Asterisk
+            || token == Token::Slash
+            || token == Token::Lt
+            || token == Token::Gt
         {
             self.read_char();
         }
@@ -149,10 +161,14 @@ mod tests {
         let input = String::from(
             "let five = 5;
             let ten = 10;
+
             let add = fn(x, y) {
             x + y;
             };
-            let result = add(five, ten);",
+
+            let result = add(five, ten);
+            !-/*5;
+            5 < 10 > 5;",
         );
         let expected_response = vec![
             Token::Let,
@@ -190,6 +206,18 @@ mod tests {
             Token::Comma,
             Token::Ident(String::from("ten")),
             Token::Rparen,
+            Token::Semicolon,
+            Token::Bang,
+            Token::Minus,
+            Token::Slash,
+            Token::Asterisk,
+            Token::Int(5),
+            Token::Semicolon,
+            Token::Int(5),
+            Token::Lt,
+            Token::Int(10),
+            Token::Gt,
+            Token::Int(5),
             Token::Semicolon,
             Token::Eof,
         ];
