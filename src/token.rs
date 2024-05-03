@@ -1,6 +1,20 @@
-// const ILLEGAL: &'static str = "ILLEGAL";
+use phf::phf_map;
 
-#[derive(PartialEq, Eq, Debug)]
+static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
+    "fn" => Token::Function,
+    "let" => Token::Let,
+};
+
+pub fn lookup_ident(ident: &str) -> Token {
+    if let Some(tok) = KEYWORDS.get(ident).cloned() {
+        tok
+    } else {
+        Token::Ident(ident.to_owned())
+    }
+}
+
+
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Token {
     Illegal,
     Eof,

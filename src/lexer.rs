@@ -1,5 +1,7 @@
+use crate::token;
 use crate::token::Token;
-
+use std::num::ParseIntError;
+use std::str::FromStr;
 struct Lexer {
     input: String,
     position: usize,      // current position in input (point to current char)
@@ -31,6 +33,11 @@ impl Lexer {
     }
 
     fn next_token(&mut self) -> Token {
+        self.skip_whitespace();
+        dbg!(&self.position);
+        dbg!(&self.read_position);
+        dbg!(&self.ch);
+
         let token: Token = match self.ch {
             Some('=') => Token::Assign,
             Some(';') => Token::Semicolon,
@@ -41,12 +48,72 @@ impl Lexer {
             Some('{') => Token::Lbrace,
             Some('}') => Token::Rbrace,
             None => Token::Eof,
-            Some(p) => panic!("Not supported token {p}"),
+            Some(c) => {
+                if is_letter(Some(c)) {
+                    token::lookup_ident(self.read_identifier())
+                } else if is_digit(Some(c)) {
+                    if let Ok(number) = self.read_number() {
+                        Token::Int(number)
+                    } else {
+                        Token::Illegal
+                    }
+                } else {
+                    Token::Illegal
+                }
+            }
         };
-
-        self.read_char();
+        if token == Token::Lparen
+            || token == Token::Assign
+            || token == Token::Semicolon
+            || token == Token::Rparen
+            || token == Token::Comma
+            || token == Token::Plus
+            || token == Token::Lbrace
+            || token == Token::Rbrace
+            || token == Token::Eof
+        {
+            self.read_char();
+        }
         token
     }
+
+    fn read_identifier(&mut self) -> &str {
+        let position = self.position;
+        while is_letter(self.ch) {
+            self.read_char();
+        }
+        // dbg!(&position);
+        // dbg!(&self.position);
+        &self.input[position..self.position]
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.ch == Some(' ')
+            || self.ch == Some('\t')
+            || self.ch == Some('\n')
+            || self.ch == Some('\r')
+        {
+            self.read_char()
+        }
+    }
+
+    fn read_number(&mut self) -> Result<u64, ParseIntError> {
+        let position = self.position;
+        while is_digit(self.ch) {
+            self.read_char();
+        }
+        dbg!(&self.input[position..self.position]);
+        u64::from_str(&self.input[position..self.position])
+    }
+}
+
+fn is_letter(ch: Option<char>) -> bool {
+    ch.map(|c| 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_')
+        .unwrap_or_else(|| false)
+}
+
+fn is_digit(ch: Option<char>) -> bool {
+    ch.map(|c| '0' <= c && c <= '9').unwrap_or_else(|| false)
 }
 
 #[cfg(test)]
@@ -56,7 +123,7 @@ mod tests {
     #[test]
     fn test_next_token() {
         let input = String::from("=+(){},;");
-        let expected_response = vec!(
+        let expected_response = vec![
             Token::Assign,
             Token::Plus,
             Token::Lparen,
@@ -66,7 +133,7 @@ mod tests {
             Token::Comma,
             Token::Semicolon,
             Token::Eof,
-        );
+        ];
 
         let mut lexer = Lexer::new(input);
 
@@ -79,13 +146,15 @@ mod tests {
 
     #[test]
     fn test_next_token_2() {
-        let input = String::from("let five = 5;
+        let input = String::from(
+            "let five = 5;
             let ten = 10;
             let add = fn(x, y) {
             x + y;
             };
-            let result = add(five, ten);");
-        let expected_response = vec!(
+            let result = add(five, ten);",
+        );
+        let expected_response = vec![
             Token::Let,
             Token::Ident(String::from("five")),
             Token::Assign,
@@ -117,13 +186,13 @@ mod tests {
             Token::Assign,
             Token::Ident(String::from("add")),
             Token::Lparen,
-            Token::Ident(String::from("fivex")),
+            Token::Ident(String::from("five")),
             Token::Comma,
             Token::Ident(String::from("ten")),
             Token::Rparen,
             Token::Semicolon,
             Token::Eof,
-        );
+        ];
 
         let mut lexer = Lexer::new(input);
 
