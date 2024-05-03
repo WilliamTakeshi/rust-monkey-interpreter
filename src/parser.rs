@@ -117,7 +117,7 @@ impl Parser {
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
         let statement = match &self.curr_token {
-            Some(Token::Ident(_)) => {
+            Some(Token::Ident(_)) | Some(Token::Int(_)) => {
                 let expr = self.parse_expression(Priority::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
             },
@@ -139,8 +139,10 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, _priority: Priority) -> Result<Expression> {
+        dbg!(&self.curr_token);
         let prefix = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
+            Some(Token::Int(num)) => Expression::Integer(*num),
             _ => todo!(),
         };
 
@@ -221,8 +223,6 @@ mod tests {
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
-        dbg!(&parser);
-
         let program = parser.parse_program();
 
         if program.len() != 1 {
@@ -234,6 +234,28 @@ mod tests {
 
         match &program[0] {
             Statement::ExpressionStmt(Expression::Ident(ident)) => assert_eq!(ident, &String::from("foobar")),
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_int_literal_expression() {
+        let input = String::from("5;");
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != 1 {
+            panic!(
+                "program statemens doesn't contain 1 elements, got {}",
+                program.len()
+            );
+        }
+
+        match &program[0] {
+            Statement::ExpressionStmt(Expression::Integer(num)) => assert_eq!(num, &5),
             _ => assert!(false),
         }
     }

@@ -30,6 +30,7 @@
 pub enum Expression {
     Ident(String),
     Plus,
+    Integer(u64),
 }
 
 #[derive(Debug)]
