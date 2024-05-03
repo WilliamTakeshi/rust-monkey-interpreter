@@ -168,7 +168,13 @@ mod tests {
 
             let result = add(five, ten);
             !-/*5;
-            5 < 10 > 5;",
+            5 < 10 > 5;
+            
+            if (5 < 10) {
+                return true;
+            } else {
+                return false;
+            }",
         );
         let expected_response = vec![
             Token::Let,
@@ -219,6 +225,23 @@ mod tests {
             Token::Gt,
             Token::Int(5),
             Token::Semicolon,
+            Token::If,
+            Token::Lparen,
+            Token::Int(5),
+            Token::Lt,
+            Token::Int(10),
+            Token::Rparen,
+            Token::Lbrace,
+            Token::Return,
+            Token::True,
+            Token::Semicolon,
+            Token::Rbrace,
+            Token::Else,
+            Token::Lbrace,
+            Token::Return,
+            Token::False,
+            Token::Semicolon,
+            Token::Rbrace,
             Token::Eof,
         ];
 

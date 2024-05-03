@@ -3,6 +3,11 @@ use phf::phf_map;
 static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
     "fn" => Token::Function,
     "let" => Token::Let,
+    "true" => Token::True,
+    "false" => Token::False,
+    "if" => Token::If,
+    "else" => Token::Else,
+    "return" => Token::Return,
 };
 
 pub fn lookup_ident(ident: &str) -> Token {
@@ -12,7 +17,6 @@ pub fn lookup_ident(ident: &str) -> Token {
         Token::Ident(ident.to_owned())
     }
 }
-
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Token {
@@ -47,4 +51,9 @@ pub enum Token {
     // Keywords
     Function,
     Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
 }
