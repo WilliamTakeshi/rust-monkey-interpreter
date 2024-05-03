@@ -2,6 +2,7 @@ use crate::token;
 use crate::token::Token;
 use std::num::ParseIntError;
 use std::str::FromStr;
+#[derive(Debug)]
 pub struct Lexer {
     input: String,
     position: usize,      // current position in input (point to current char)

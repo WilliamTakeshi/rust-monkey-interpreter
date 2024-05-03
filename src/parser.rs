@@ -1,8 +1,19 @@
-use crate::ast::{Program, Statement};
+use crate::ast::{Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use anyhow::{anyhow, Result};
 
+enum Priority {
+    Lowest = 1,
+    Equals = 2,      // ==
+    Lessgreater = 3, // > or <
+    Sum = 4,         // +
+    Product = 5,     // *
+    Prefix = 6,      // -X or !X
+    Call = 7,        // myFunction(X)
+}
+
+#[derive(Debug)]
 struct Parser {
     lexer: Lexer,
     curr_token: Option<Token>,
@@ -37,7 +48,7 @@ impl Parser {
                 Err(error) => {
                     dbg!(&error);
                     ()
-                },
+                }
             }
 
             self.next_token();
@@ -49,29 +60,38 @@ impl Parser {
         match self.curr_token {
             Some(Token::Let) => self.parse_let_statement(),
             Some(Token::Return) => self.parse_return_statement(),
-            _ => todo!()
+            _ => self.parse_expression_statement(),
         }
     }
 
     fn parse_let_statement(&mut self) -> Result<Statement> {
         let statement = match &self.peek_token {
             Some(Token::Ident(ident)) => Ok(Statement::Let(ident.clone())),
-            Some(token) => Err(anyhow!("Expected token: {:?}, Found: {:?}", Token::Ident(String::from("something")), token)),
-            None => Err(anyhow!("Expected token: {:?}, Found nothing", Token::Ident(String::from("something")))),
+            Some(token) => Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Ident(String::from("something")),
+                token
+            )),
+            None => Err(anyhow!(
+                "Expected token: {:?}, Found nothing",
+                Token::Ident(String::from("something"))
+            )),
         };
-
 
         self.next_token();
 
         if self.peek_token != Some(Token::Assign) {
-            return Err(anyhow!("Expected token: {:?}, Found: {:?}", Token::Assign, self.peek_token));
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Assign,
+                self.peek_token
+            ));
         }
 
-        // TODO: Skip until Semicolon 
+        // TODO: Skip until Semicolon
         while self.curr_token != Some(Token::Semicolon) {
             self.next_token();
         }
-
 
         statement
     }
@@ -79,17 +99,52 @@ impl Parser {
     fn parse_return_statement(&mut self) -> Result<Statement> {
         let statement = match &self.peek_token {
             Some(_) => Ok(Statement::Return),
-            None => Err(anyhow!("Expected token: {:?}, Found nothing", Token::Ident(String::from("something")))),
+            None => Err(anyhow!(
+                "Expected token: {:?}, Found nothing",
+                Token::Ident(String::from("something"))
+            )),
         };
 
         self.next_token();
 
-        // TODO: Skip until Semicolon 
+        // TODO: Skip until Semicolon
         while self.curr_token != Some(Token::Semicolon) {
             self.next_token();
         }
 
         statement
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<Statement> {
+        let statement = match &self.curr_token {
+            Some(Token::Ident(_)) => {
+                let expr = self.parse_expression(Priority::Lowest)?;
+                Ok(Statement::ExpressionStmt(expr))
+            },
+            None => Err(anyhow!(
+                "Expected token: {:?}, Found nothing",
+                Token::Ident(String::from("something"))
+            )),
+            _ => todo!(),
+        };
+
+        self.next_token();
+
+        // TODO: Skip until Semicolon
+        while self.curr_token != Some(Token::Semicolon) {
+            self.next_token();
+        }
+
+        statement
+    }
+
+    fn parse_expression(&mut self, _priority: Priority) -> Result<Expression> {
+        let prefix = match &self.curr_token {
+            Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
+            _ => todo!(),
+        };
+
+        Ok(prefix)
     }
 }
 
@@ -113,18 +168,21 @@ mod tests {
         let program = parser.parse_program();
 
         if program.len() != 3 {
-            panic!("program statemens doesn't contain 3 elements, got {}", program.len());
+            panic!(
+                "program statemens doesn't contain 3 elements, got {}",
+                program.len()
+            );
         }
 
         let expected_ident = [String::from("x"), String::from("y"), String::from("foobar")];
 
-        for (i ,ident) in expected_ident.iter().enumerate() {
+        for (i, ident) in expected_ident.iter().enumerate() {
             let statement = &program[i];
             match statement {
                 Statement::Let(identifier) => assert_eq!(identifier, ident),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
-        } 
+        }
     }
 
     #[test]
@@ -141,16 +199,42 @@ mod tests {
         let program = parser.parse_program();
 
         if program.len() != 3 {
-            panic!("program statemens doesn't contain 3 elements, got {}", program.len());
+            panic!(
+                "program statemens doesn't contain 3 elements, got {}",
+                program.len()
+            );
         }
-
 
         for i in 0..3 {
             let statement = &program[i];
             match statement {
                 Statement::Return => assert!(true),
-                _ => unreachable!()
+                _ => unreachable!(),
             }
-        } 
+        }
+    }
+
+    #[test]
+    fn test_ident_expression() {
+        let input = String::from("foobar;");
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        dbg!(&parser);
+
+        let program = parser.parse_program();
+
+        if program.len() != 1 {
+            panic!(
+                "program statemens doesn't contain 1 elements, got {}",
+                program.len()
+            );
+        }
+
+        match &program[0] {
+            Statement::ExpressionStmt(Expression::Ident(ident)) => assert_eq!(ident, &String::from("foobar")),
+            _ => assert!(false),
+        }
     }
 }

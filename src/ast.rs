@@ -26,35 +26,17 @@
 // }
 
 
+#[derive(Debug)]
 pub enum Expression {
-    Plus
+    Ident(String),
+    Plus,
 }
 
 #[derive(Debug)]
 pub enum Statement {
     Let(String),
     Return,
+    ExpressionStmt(Expression),
 }
 
 pub type Program = Vec<Statement>;
-
-
-// fn token_literal(program: Program) -> String {
-//     if program.len() > 0 {
-//         program[0];
-//         todo!()
-//     } else {
-//         String::default()
-//     }
-// }
-
-
-
-
-    // func (p *Program) TokenLiteral() string {
-    // if len(p.Statements) > 0 {
-    // return p.Statements[0].TokenLiteral()
-    // } else {
-    // return ""
-    // }
-    // }
