@@ -2,7 +2,7 @@ use crate::token;
 use crate::token::Token;
 use std::num::ParseIntError;
 use std::str::FromStr;
-struct Lexer {
+pub struct Lexer {
     input: String,
     position: usize,      // current position in input (point to current char)
     read_position: usize, // current reading position in input (after current char)
@@ -10,7 +10,7 @@ struct Lexer {
 }
 
 impl Lexer {
-    fn new(input: String) -> Self {
+    pub fn new(input: String) -> Self {
         let mut l = Lexer {
             input,
             position: 0,
@@ -40,7 +40,7 @@ impl Lexer {
         }
     }
 
-    fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let token: Token = match self.ch {
