@@ -8,6 +8,8 @@ static KEYWORDS: phf::Map<&'static str, Token> = phf_map! {
     "if" => Token::If,
     "else" => Token::Else,
     "return" => Token::Return,
+    "==" => Token::Eq,
+    "!=" => Token::Neq,
 };
 
 pub fn lookup_ident(ident: &str) -> Token {
@@ -56,4 +58,6 @@ pub enum Token {
     If,
     Else,
     Return,
+    Eq,
+    Neq,
 }

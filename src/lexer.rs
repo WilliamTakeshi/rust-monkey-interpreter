@@ -32,14 +32,34 @@ impl Lexer {
         self.read_position += 1;
     }
 
+    fn peek_char(&self) -> Option<char> {
+        if self.read_position >= self.input.len() {
+            None
+        } else {
+            self.input.chars().nth(self.read_position)
+        }
+    }
+
     fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-        dbg!(&self.position);
-        dbg!(&self.read_position);
-        dbg!(&self.ch);
 
         let token: Token = match self.ch {
-            Some('=') => Token::Assign,
+            Some('=') => {
+                if self.peek_char() == Some('=') {
+                    self.read_char();
+                    Token::Eq                    
+                } else {
+                    Token::Assign
+                }
+            },
+            Some('!') => {
+                if self.peek_char() == Some('=') {
+                    self.read_char();
+                    Token::Neq                    
+                } else {
+                    Token::Bang
+                }
+            },
             Some(';') => Token::Semicolon,
             Some('(') => Token::Lparen,
             Some(')') => Token::Rparen,
@@ -48,7 +68,6 @@ impl Lexer {
             Some('{') => Token::Lbrace,
             Some('}') => Token::Rbrace,
             Some('-') => Token::Minus,
-            Some('!') => Token::Bang,
             Some('*') => Token::Asterisk,
             Some('/') => Token::Slash,
             Some('<') => Token::Lt,
@@ -68,35 +87,17 @@ impl Lexer {
                 }
             }
         };
-        if token == Token::Lparen
-            || token == Token::Assign
-            || token == Token::Semicolon
-            || token == Token::Rparen
-            || token == Token::Comma
-            || token == Token::Plus
-            || token == Token::Lbrace
-            || token == Token::Rbrace
-            || token == Token::Eof
-            || token == Token::Minus
-            || token == Token::Bang
-            || token == Token::Asterisk
-            || token == Token::Slash
-            || token == Token::Lt
-            || token == Token::Gt
-        {
-            self.read_char();
-        }
+
+        self.read_char();
         token
     }
 
     fn read_identifier(&mut self) -> &str {
         let position = self.position;
-        while is_letter(self.ch) {
+        while is_letter(self.peek_char()) {
             self.read_char();
         }
-        // dbg!(&position);
-        // dbg!(&self.position);
-        &self.input[position..self.position]
+        &self.input[position..=self.position]
     }
 
     fn skip_whitespace(&mut self) {
@@ -111,21 +112,20 @@ impl Lexer {
 
     fn read_number(&mut self) -> Result<u64, ParseIntError> {
         let position = self.position;
-        while is_digit(self.ch) {
+        while is_digit(self.peek_char()) {
             self.read_char();
         }
-        dbg!(&self.input[position..self.position]);
-        u64::from_str(&self.input[position..self.position])
+        u64::from_str(&self.input[position..=self.position])
     }
 }
 
 fn is_letter(ch: Option<char>) -> bool {
-    ch.map(|c| 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_')
+    ch.map(|c| c.is_ascii_lowercase() || c.is_ascii_uppercase() || c == '_')
         .unwrap_or_else(|| false)
 }
 
 fn is_digit(ch: Option<char>) -> bool {
-    ch.map(|c| '0' <= c && c <= '9').unwrap_or_else(|| false)
+    ch.map(|c| c.is_ascii_digit()).unwrap_or_else(|| false)
 }
 
 #[cfg(test)]
@@ -174,7 +174,10 @@ mod tests {
                 return true;
             } else {
                 return false;
-            }",
+            }
+            
+            10 == 10;
+            10 != 9",
         );
         let expected_response = vec![
             Token::Let,
@@ -242,6 +245,13 @@ mod tests {
             Token::False,
             Token::Semicolon,
             Token::Rbrace,
+            Token::Int(10),
+            Token::Eq,
+            Token::Int(10),
+            Token::Semicolon,
+            Token::Int(10),
+            Token::Neq,
+            Token::Int(9),
             Token::Eof,
         ];
 
