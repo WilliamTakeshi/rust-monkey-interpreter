@@ -1,9 +1,10 @@
-use crate::ast::{Expression, Prefix, Program, Statement};
+use crate::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use anyhow::{anyhow, Result};
 
-enum Priority {
+#[derive(PartialEq, PartialOrd)]
+enum Precedence {
     Lowest = 1,
     Equals = 2,      // ==
     Lessgreater = 3, // > or <
@@ -118,7 +119,7 @@ impl Parser {
     fn parse_expression_statement(&mut self) -> Result<Statement> {
         let statement = match &self.curr_token {
             Some(Token::Ident(_)) | Some(Token::Int(_)) => {
-                let expr = self.parse_expression(Priority::Lowest)?;
+                let expr = self.parse_expression(Precedence::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
             }
             Some(Token::Bang) | Some(Token::Minus) => {
@@ -142,14 +143,21 @@ impl Parser {
         statement
     }
 
-    fn parse_expression(&mut self, _priority: Priority) -> Result<Expression> {
-        let prefix = match &self.curr_token {
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
+        let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),
             _ => todo!(),
         };
 
-        Ok(prefix)
+        while self.peek_token != Some(Token::Semicolon)
+            && precedence < get_precedence(&self.peek_token.clone().unwrap())
+        {
+            self.next_token();
+            left = self.parse_infix_expression(left)?;
+        }
+
+        Ok(left)
     }
 
     fn parse_prefix_expression(&mut self) -> Result<Expression> {
@@ -157,12 +165,74 @@ impl Parser {
 
         self.next_token();
 
-        let right = self.parse_expression(Priority::Prefix)?;
+        let right = self.parse_expression(Precedence::Prefix)?;
         match curr_token {
             Some(Token::Bang) => Ok(Expression::PrefixExpr(Prefix::Bang, Box::from(right))),
             Some(Token::Minus) => Ok(Expression::PrefixExpr(Prefix::Minus, Box::from(right))),
             _ => unreachable!(),
         }
+    }
+
+    fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
+        let curr_token = self.curr_token.clone();
+        let precedence = get_precedence(&curr_token.clone().unwrap());
+        self.next_token();
+
+        let right = self.parse_expression(precedence)?;
+        match &curr_token {
+            Some(Token::Plus) => Ok(Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Minus) => Ok(Expression::InfixExpr(
+                Infix::Minus,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Slash) => Ok(Expression::InfixExpr(
+                Infix::Slash,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Asterisk) => Ok(Expression::InfixExpr(
+                Infix::Asterisk,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Gt) => Ok(Expression::InfixExpr(
+                Infix::Gt,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Lt) => Ok(Expression::InfixExpr(
+                Infix::Lt,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Eq) => Ok(Expression::InfixExpr(
+                Infix::Eq,
+                Box::from(left),
+                Box::from(right),
+            )),
+            Some(Token::Neq) => Ok(Expression::InfixExpr(
+                Infix::Neq,
+                Box::from(left),
+                Box::from(right),
+            )),
+            _ => unreachable!(),
+        }
+    }
+}
+
+fn get_precedence(tok: &Token) -> Precedence {
+    dbg!(&tok);
+    match tok {
+        Token::Eq | Token::Neq => Precedence::Equals,
+        Token::Lt | Token::Gt => Precedence::Lessgreater,
+        Token::Plus | Token::Minus => Precedence::Sum,
+        Token::Asterisk | Token::Slash => Precedence::Product,
+        _ => Precedence::Lowest,
     }
 }
 
@@ -281,11 +351,9 @@ mod tests {
     #[test]
     fn test_prefix_expression() {
         let input = String::from(
-            "
-            !5;
+            "!5;
             -15;
-            !7;
-        ",
+            !7;",
         );
 
         let expected_expressions = [
@@ -315,4 +383,89 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_infix_expression() {
+        let input = String::from(
+            "1+5;
+            1-5;
+            1*5;
+            1/5;
+            1>5;
+            1<5;
+            1==5;
+            1!=5;",
+        );
+
+        let expected_expressions = [
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Minus,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Asterisk,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Slash,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Gt,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Lt,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Eq,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+            Expression::InfixExpr(
+                Infix::Neq,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::Literal(5)),
+            ),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != 8 {
+            panic!(
+                "program statemens doesn't contain 8 elements, got {}",
+                program.len()
+            );
+        }
+
+        dbg!(&program);
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    // {"5 + 5;", 5, "+", 5},
+    // {"5 - 5;", 5, "-", 5},
+    // {"5 * 5;", 5, "*", 5},
+
 }

@@ -4,7 +4,7 @@ pub enum Expression {
     Ident(String),
     Literal(u64),
     PrefixExpr(Prefix, Box<Expression>),
-    // InfixExpr(Infix, Box<Expr>, Box<Expr>),
+    InfixExpr(Infix, Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq)]
@@ -13,11 +13,17 @@ pub enum Prefix {
     Bang,
 }
 
-// #[derive(Debug)]
-// pub enum Infix {
-
-// }
-
+#[derive(Debug, PartialEq)]
+pub enum Infix {
+    Eq,
+    Neq,
+    Lt,
+    Gt,
+    Plus,
+    Minus,
+    Slash,
+    Asterisk,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
