@@ -1,39 +1,25 @@
-// type Node interface {
-//     TokenLiteral() string
-// }
-// type Statement interface {
-//     Node
-//     statementNode()
-// }
-// type Expression interface {
-//     Node
-//     expressionNode()
-// }
 
-// trait Node {
-//     fn token_literal() -> String {}
-// }
-
-// trait Statement {
-//     todo!();
-// }
-
-
-// pub enum Node {
-//     Node,
-//     Statement,
-//     Expression
-// }
-
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Ident(String),
-    Plus,
-    Integer(u64),
+    Literal(u64),
+    PrefixExpr(Prefix, Box<Expression>),
+    // InfixExpr(Infix, Box<Expr>, Box<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+pub enum Prefix {
+    Minus,
+    Bang,
+}
+
+// #[derive(Debug)]
+// pub enum Infix {
+
+// }
+
+
+#[derive(Debug, PartialEq)]
 pub enum Statement {
     Let(String),
     Return,

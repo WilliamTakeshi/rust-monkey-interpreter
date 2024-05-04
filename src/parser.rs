@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Program, Statement};
+use crate::ast::{Expression, Prefix, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use anyhow::{anyhow, Result};
@@ -120,7 +120,11 @@ impl Parser {
             Some(Token::Ident(_)) | Some(Token::Int(_)) => {
                 let expr = self.parse_expression(Priority::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
-            },
+            }
+            Some(Token::Bang) | Some(Token::Minus) => {
+                let expr = self.parse_prefix_expression()?;
+                Ok(Statement::ExpressionStmt(expr))
+            }
             None => Err(anyhow!(
                 "Expected token: {:?}, Found nothing",
                 Token::Ident(String::from("something"))
@@ -139,14 +143,26 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, _priority: Priority) -> Result<Expression> {
-        dbg!(&self.curr_token);
         let prefix = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
-            Some(Token::Int(num)) => Expression::Integer(*num),
+            Some(Token::Int(num)) => Expression::Literal(*num),
             _ => todo!(),
         };
 
         Ok(prefix)
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<Expression> {
+        let curr_token = self.curr_token.clone();
+
+        self.next_token();
+
+        let right = self.parse_expression(Priority::Prefix)?;
+        match curr_token {
+            Some(Token::Bang) => Ok(Expression::PrefixExpr(Prefix::Bang, Box::from(right))),
+            Some(Token::Minus) => Ok(Expression::PrefixExpr(Prefix::Minus, Box::from(right))),
+            _ => unreachable!(),
+        }
     }
 }
 
@@ -233,7 +249,9 @@ mod tests {
         }
 
         match &program[0] {
-            Statement::ExpressionStmt(Expression::Ident(ident)) => assert_eq!(ident, &String::from("foobar")),
+            Statement::ExpressionStmt(Expression::Ident(ident)) => {
+                assert_eq!(ident, &String::from("foobar"))
+            }
             _ => assert!(false),
         }
     }
@@ -255,8 +273,46 @@ mod tests {
         }
 
         match &program[0] {
-            Statement::ExpressionStmt(Expression::Integer(num)) => assert_eq!(num, &5),
+            Statement::ExpressionStmt(Expression::Literal(num)) => assert_eq!(num, &5),
             _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_prefix_expression() {
+        let input = String::from(
+            "
+            !5;
+            -15;
+            !7;
+        ",
+        );
+
+        let expected_expressions = [
+            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::Literal(5))),
+            Expression::PrefixExpr(Prefix::Minus, Box::from(Expression::Literal(15))),
+            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::Literal(7))),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != 3 {
+            panic!(
+                "program statemens doesn't contain 3 elements, got {}",
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
         }
     }
 }
