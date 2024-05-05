@@ -464,8 +464,63 @@ mod tests {
         }
     }
 
-    // {"5 + 5;", 5, "+", 5},
-    // {"5 - 5;", 5, "-", 5},
-    // {"5 * 5;", 5, "*", 5},
+    #[test]
+    fn test_complex_expression() {
+        let input = String::from(
+            "1+5+7;
+            1-5/6;
+            1*5+2;",
+        );
 
+        let expected_expressions = [
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::Literal(5)),
+                )),
+                Box::from(Expression::Literal(7)),
+            ),
+            Expression::InfixExpr(
+                Infix::Minus,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::InfixExpr(
+                    Infix::Slash,
+                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::Literal(6)),
+                )),
+            ),
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::InfixExpr(
+                    Infix::Asterisk,
+                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::Literal(5)),
+                )),
+                Box::from(Expression::Literal(2)),
+            ),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != 3 {
+            panic!(
+                "program statemens doesn't contain 3 elements, got {}",
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
 }
