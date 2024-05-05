@@ -3,6 +3,7 @@
 pub enum Expression {
     Ident(String),
     Literal(u64),
+    Boolean(bool),
     PrefixExpr(Prefix, Box<Expression>),
     InfixExpr(Infix, Box<Expression>, Box<Expression>),
 }

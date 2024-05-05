@@ -118,7 +118,10 @@ impl Parser {
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
         let statement = match &self.curr_token {
-            Some(Token::Ident(_)) | Some(Token::Int(_)) => {
+            Some(Token::Ident(_))
+            | Some(Token::Int(_))
+            | Some(Token::True)
+            | Some(Token::False) => {
                 let expr = self.parse_expression(Precedence::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
             }
@@ -147,6 +150,8 @@ impl Parser {
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),
+            Some(Token::True) => Expression::Boolean(true),
+            Some(Token::False) => Expression::Boolean(false),
             _ => todo!(),
         };
 
@@ -226,7 +231,6 @@ impl Parser {
 }
 
 fn get_precedence(tok: &Token) -> Precedence {
-    dbg!(&tok);
     match tok {
         Token::Eq | Token::Neq => Precedence::Equals,
         Token::Lt | Token::Gt => Precedence::Lessgreater,
@@ -500,6 +504,14 @@ mod tests {
                 )),
                 Box::from(Expression::Literal(2)),
             ),
+            // Expression::InfixExpr(
+            //     Infix::Plus,
+            //     Box::from(Expression::PrefixExpr(
+            //         Prefix::Bang,
+            //         Box::from(Expression::Literal(1)),
+            //     )),
+            //     Box::from(Expression::Literal(2)),
+            // ),
         ];
 
         let lexer = Lexer::new(input);
@@ -507,9 +519,65 @@ mod tests {
 
         let program = parser.parse_program();
 
-        if program.len() != 3 {
+        if program.len() != expected_expressions.len() {
             panic!(
-                "program statemens doesn't contain 3 elements, got {}",
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_boolean_expression() {
+        let input = String::from(
+            "true;
+            false;
+            3 > 5 == false;
+            3 < 5 != true;",
+        );
+
+        let expected_expressions = [
+            Expression::Boolean(true),
+            Expression::Boolean(false),
+            Expression::InfixExpr(
+                Infix::Eq,
+                Box::from(Expression::InfixExpr(
+                    Infix::Gt,
+                    Box::from(Expression::Literal(3)),
+                    Box::from(Expression::Literal(5)),
+                )),
+                Box::from(Expression::Boolean(false)),
+            ),
+            Expression::InfixExpr(
+                Infix::Neq,
+                Box::from(Expression::InfixExpr(
+                    Infix::Lt,
+                    Box::from(Expression::Literal(3)),
+                    Box::from(Expression::Literal(5)),
+                )),
+                Box::from(Expression::Boolean(true)),
+            ),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
                 program.len()
             );
         }
