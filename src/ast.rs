@@ -1,4 +1,3 @@
-
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Ident(String),
@@ -6,6 +5,7 @@ pub enum Expression {
     Boolean(bool),
     PrefixExpr(Prefix, Box<Expression>),
     InfixExpr(Infix, Box<Expression>, Box<Expression>),
+    IfExpr(Box<Expression>, Block, Block),
 }
 
 #[derive(Debug, PartialEq)]
@@ -32,5 +32,7 @@ pub enum Statement {
     Return,
     ExpressionStmt(Expression),
 }
+
+pub type Block = Vec<Statement>;
 
 pub type Program = Vec<Statement>;
