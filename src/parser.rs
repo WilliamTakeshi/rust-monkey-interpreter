@@ -3,7 +3,7 @@ use crate::lexer::Lexer;
 use crate::token::Token;
 use anyhow::{anyhow, Result};
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq, PartialOrd, Debug)]
 enum Precedence {
     Lowest = 1,
     Equals = 2,      // ==
@@ -121,14 +121,13 @@ impl Parser {
             Some(Token::Ident(_))
             | Some(Token::Int(_))
             | Some(Token::True)
-            | Some(Token::False) => {
+            | Some(Token::False)
+            | Some(Token::Bang)
+            | Some(Token::Minus) => {
                 let expr = self.parse_expression(Precedence::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
             }
-            Some(Token::Bang) | Some(Token::Minus) => {
-                let expr = self.parse_prefix_expression()?;
-                Ok(Statement::ExpressionStmt(expr))
-            }
+
             None => Err(anyhow!(
                 "Expected token: {:?}, Found nothing",
                 Token::Ident(String::from("something"))
@@ -152,9 +151,16 @@ impl Parser {
             Some(Token::Int(num)) => Expression::Literal(*num),
             Some(Token::True) => Expression::Boolean(true),
             Some(Token::False) => Expression::Boolean(false),
+            Some(Token::Lparen) => self.parse_grouped_expression()?,
+            Some(Token::Bang) | Some(Token::Minus) => self.parse_prefix_expression()?,
             _ => todo!(),
         };
 
+        dbg!(&left);
+        dbg!(&self.peek_token);
+        dbg!(&precedence);
+        dbg!("");
+        dbg!("");
         while self.peek_token != Some(Token::Semicolon)
             && precedence < get_precedence(&self.peek_token.clone().unwrap())
         {
@@ -176,6 +182,24 @@ impl Parser {
             Some(Token::Minus) => Ok(Expression::PrefixExpr(Prefix::Minus, Box::from(right))),
             _ => unreachable!(),
         }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Expression> {
+        self.next_token();
+
+        let expression = self.parse_expression(Precedence::Lowest);
+
+        if self.peek_token != Some(Token::Rparen) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Rparen,
+                self.peek_token
+            ));
+        }
+
+        self.next_token();
+
+        expression
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
@@ -473,7 +497,8 @@ mod tests {
         let input = String::from(
             "1+5+7;
             1-5/6;
-            1*5+2;",
+            1*5+2;
+            1*-5+2;",
         );
 
         let expected_expressions = [
@@ -504,14 +529,18 @@ mod tests {
                 )),
                 Box::from(Expression::Literal(2)),
             ),
-            // Expression::InfixExpr(
-            //     Infix::Plus,
-            //     Box::from(Expression::PrefixExpr(
-            //         Prefix::Bang,
-            //         Box::from(Expression::Literal(1)),
-            //     )),
-            //     Box::from(Expression::Literal(2)),
-            // ),
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::InfixExpr(
+                    Infix::Asterisk,
+                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::PrefixExpr(
+                        Prefix::Minus,
+                        Box::from(Expression::Literal(5)),
+                    )),
+                )),
+                Box::from(Expression::Literal(2)),
+            ),
         ];
 
         let lexer = Lexer::new(input);
@@ -566,6 +595,76 @@ mod tests {
                     Box::from(Expression::Literal(5)),
                 )),
                 Box::from(Expression::Boolean(true)),
+            ),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_precedence_expression() {
+        let input = String::from(
+            "
+            1 + (2 + 3) + 4;
+            1 + ((2 + 3) + 4);
+            -(5 + 6);
+        ",
+        );
+
+        let expected_expressions = [
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::InfixExpr(
+                        Infix::Plus,
+                        Box::from(Expression::Literal(2)),
+                        Box::from(Expression::Literal(3)),
+                    )),
+                )),
+                Box::from(Expression::Literal(4)),
+            ),
+            Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::Literal(1)),
+                Box::from(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::InfixExpr(
+                        Infix::Plus,
+                        Box::from(Expression::Literal(2)),
+                        Box::from(Expression::Literal(3)),
+                    )),
+                    Box::from(Expression::Literal(4)),
+                )),
+            ),
+            Expression::PrefixExpr(
+                Prefix::Minus,
+                Box::from(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::Literal(6)),
+                )),
             ),
         ];
 
