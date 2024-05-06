@@ -124,6 +124,7 @@ impl Parser {
             | Some(Token::True)
             | Some(Token::False)
             | Some(Token::Bang)
+            | Some(Token::Function)
             | Some(Token::Minus) => {
                 let expr = self.parse_expression(Precedence::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
@@ -155,6 +156,7 @@ impl Parser {
             Some(Token::Lparen) => self.parse_grouped_expression()?,
             Some(Token::Bang) | Some(Token::Minus) => self.parse_prefix_expression()?,
             Some(Token::If) => self.parse_if_expression()?,
+            Some(Token::Function) => self.parse_fn_literal_expression()?,
             _ => todo!(),
         };
 
@@ -221,7 +223,6 @@ impl Parser {
         }
         self.next_token();
 
-
         if self.peek_token != Some(Token::Lbrace) {
             return Err(anyhow!(
                 "Expected token: {:?}, Found: {:?}",
@@ -231,9 +232,8 @@ impl Parser {
         }
         self.next_token();
 
-
         let consequence = self.parse_block_statement()?;
-        let mut auternative = vec!();
+        let mut auternative = vec![];
 
         if self.peek_token == Some(Token::Else) {
             self.next_token();
@@ -257,13 +257,83 @@ impl Parser {
         ))
     }
 
+    fn parse_fn_literal_expression(&mut self) -> Result<Expression> {
+        if self.peek_token != Some(Token::Lparen) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Lparen,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        let parameters = self.parse_fn_parameters()?;
+
+        if self.peek_token != Some(Token::Lbrace) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Lbrace,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        let body = self.parse_block_statement()?;
+        Ok(Expression::FnLiteral(parameters, body))
+    }
+
+    fn parse_fn_parameters(&mut self) -> Result<Vec<Expression>> {
+        let mut idents = vec![];
+
+        if self.peek_token == Some(Token::Rparen) {
+            self.next_token();
+            return Ok(idents);
+        }
+        self.next_token();
+
+        match &self.curr_token {
+            Some(Token::Ident(ident)) => idents.push(Expression::Ident(ident.clone())),
+            _ => {
+                return Err(anyhow!(
+                    "Expected token of type identifier inside function parameters, found: {:?}",
+                    self.curr_token
+                ))
+            }
+        }
+
+        while self.peek_token == Some(Token::Comma) {
+            self.next_token();
+            self.next_token();
+
+            match &self.curr_token {
+                Some(Token::Ident(ident)) => idents.push(Expression::Ident(ident.clone())),
+                _ => {
+                    return Err(anyhow!(
+                        "Expected token of type identifier inside function parameters, found: {:?}",
+                        self.curr_token
+                    ))
+                }
+            }
+        }
+
+        if self.peek_token != Some(Token::Rparen) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Rparen,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        Ok(idents)
+    }
+
     fn parse_block_statement(&mut self) -> Result<Block> {
         self.next_token();
 
         let mut statements = vec![];
         while self.curr_token != Some(Token::Rbrace) && self.curr_token != Some(Token::Eof) {
             let stmt = self.parse_statement()?;
-            dbg!(&stmt);
             statements.push(stmt);
             self.next_token();
         }
@@ -549,8 +619,6 @@ mod tests {
             );
         }
 
-        dbg!(&program);
-
         for (idx, expected_expr) in expected_expressions.iter().enumerate() {
             match &program[idx] {
                 Statement::ExpressionStmt(expr) => {
@@ -809,6 +877,89 @@ mod tests {
                 vec![Statement::ExpressionStmt(Expression::Ident(String::from(
                     "y",
                 )))],
+            ),
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_fn_expression() {
+        let input = String::from("fn(x, y) { x + y; };");
+
+        let expected_expressions = [Expression::FnLiteral(
+            vec![
+                Expression::Ident(String::from("x")),
+                Expression::Ident(String::from("y")),
+            ],
+            vec![Statement::ExpressionStmt(Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::Ident(String::from("x"))),
+                Box::from(Expression::Ident(String::from("y"))),
+            ))],
+        )];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_fn_parameter_parsing_expression() {
+        let input = String::from(
+            "fn() {};
+            fn(x) {};
+            fn(x, y, z) {};",
+        );
+
+        let expected_expressions = [
+            Expression::FnLiteral(vec![], vec![]),
+            Expression::FnLiteral(vec![Expression::Ident(String::from("x"))], vec![]),
+            Expression::FnLiteral(
+                vec![
+                    Expression::Ident(String::from("x")),
+                    Expression::Ident(String::from("y")),
+                    Expression::Ident(String::from("z")),
+                ],
+                vec![],
             ),
         ];
 
