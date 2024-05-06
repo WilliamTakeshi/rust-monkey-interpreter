@@ -30,8 +30,8 @@ pub enum Infix {
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
-    Let(String),
-    Return,
+    Let(String, Expression),
+    Return(Expression),
     ExpressionStmt(Expression),
 }
 

@@ -66,17 +66,21 @@ impl Parser {
     }
 
     fn parse_let_statement(&mut self) -> Result<Statement> {
-        let statement = match &self.peek_token {
-            Some(Token::Ident(ident)) => Ok(Statement::Let(ident.clone())),
-            Some(token) => Err(anyhow!(
-                "Expected token: {:?}, Found: {:?}",
-                Token::Ident(String::from("something")),
-                token
-            )),
-            None => Err(anyhow!(
-                "Expected token: {:?}, Found nothing",
-                Token::Ident(String::from("something"))
-            )),
+        let ident = match &self.peek_token {
+            Some(Token::Ident(ident)) => ident.clone(),
+            Some(token) => {
+                return Err(anyhow!(
+                    "Expected token: {:?}, Found: {:?}",
+                    Token::Ident(String::from("something")),
+                    token
+                ))
+            }
+            None => {
+                return Err(anyhow!(
+                    "Expected token: {:?}, Found nothing",
+                    Token::Ident(String::from("something"))
+                ))
+            }
         };
 
         self.next_token();
@@ -88,32 +92,28 @@ impl Parser {
                 self.peek_token
             ));
         }
+        self.next_token();
+        self.next_token();
 
-        // TODO: Skip until Semicolon
-        while self.curr_token != Some(Token::Semicolon) {
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Some(Token::Semicolon) {
             self.next_token();
         }
 
-        statement
+        Ok(Statement::Let(ident, value))
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement> {
-        let statement = match &self.peek_token {
-            Some(_) => Ok(Statement::Return),
-            None => Err(anyhow!(
-                "Expected token: {:?}, Found nothing",
-                Token::Ident(String::from("something"))
-            )),
-        };
-
         self.next_token();
 
-        // TODO: Skip until Semicolon
-        while self.curr_token != Some(Token::Semicolon) {
+        let value = self.parse_expression(Precedence::Lowest)?;
+
+        if self.peek_token == Some(Token::Semicolon) {
             self.next_token();
         }
 
-        statement
+        Ok(Statement::Return(value))
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
@@ -140,15 +140,11 @@ impl Parser {
 
         self.next_token();
 
-        // TODO: Skip until Semicolon
-        while self.curr_token != Some(Token::Semicolon) {
-            self.next_token();
-        }
-
         statement
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
+        dbg!(&self.curr_token);
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),
@@ -458,26 +454,29 @@ mod tests {
             let foobar = 838383;",
         );
 
+        let expected_statements = [
+            Statement::Let(String::from("x"), Expression::Literal(5)),
+            Statement::Let(String::from("y"), Expression::Literal(10)),
+            Statement::Let(String::from("foobar"), Expression::Literal(838383)),
+        ];
+
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
 
-        if program.len() != 3 {
+        if program.len() != expected_statements.len() {
             panic!(
-                "program statemens doesn't contain 3 elements, got {}",
+                "program statemens doesn't contain {} elements, got {}",
+                expected_statements.len(),
                 program.len()
             );
         }
 
-        let expected_ident = [String::from("x"), String::from("y"), String::from("foobar")];
+        dbg!(&program);
 
-        for (i, ident) in expected_ident.iter().enumerate() {
-            let statement = &program[i];
-            match statement {
-                Statement::Let(identifier) => assert_eq!(identifier, ident),
-                _ => unreachable!(),
-            }
+        for i in 0..expected_statements.len() {
+            assert_eq!(program[i], expected_statements[i]);
         }
     }
 
@@ -486,27 +485,38 @@ mod tests {
         let input = String::from(
             "return 5;
             return 10;
-            return 993322;",
+            return 993322;
+            return 5+6;",
         );
+
+        let expected_statements = [
+            Statement::Return(Expression::Literal(5)),
+            Statement::Return(Expression::Literal(10)),
+            Statement::Return(Expression::Literal(993322)),
+            Statement::Return(Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::Literal(5)),
+                Box::from(Expression::Literal(6)),
+            )),
+        ];
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
 
-        if program.len() != 3 {
+        if program.len() != expected_statements.len() {
             panic!(
-                "program statemens doesn't contain 3 elements, got {}",
+                "program statemens doesn't contain {} elements, got {}",
+                expected_statements.len(),
                 program.len()
             );
         }
 
-        for i in 0..3 {
-            let statement = &program[i];
-            match statement {
-                Statement::Return => assert!(true),
-                _ => unreachable!(),
-            }
+        dbg!(&program);
+
+        for i in 0..expected_statements.len() {
+            assert_eq!(program[i], expected_statements[i]);
         }
     }
 
