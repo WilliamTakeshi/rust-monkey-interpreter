@@ -7,6 +7,7 @@ pub enum Expression {
     InfixExpr(Infix, Box<Expression>, Box<Expression>),
     IfExpr(Box<Expression>, Block, Block),
     FnLiteral(Vec<Expression>, Block),
+    Call(Box<Expression>, Vec<Expression>)
 }
 
 #[derive(Debug, PartialEq)]

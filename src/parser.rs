@@ -125,6 +125,7 @@ impl Parser {
             | Some(Token::False)
             | Some(Token::Bang)
             | Some(Token::Function)
+            | Some(Token::Lparen)
             | Some(Token::Minus) => {
                 let expr = self.parse_expression(Precedence::Lowest)?;
                 Ok(Statement::ExpressionStmt(expr))
@@ -164,7 +165,11 @@ impl Parser {
             && precedence < get_precedence(&self.peek_token.clone().unwrap())
         {
             self.next_token();
-            left = self.parse_infix_expression(left)?;
+
+            left = match &self.curr_token {
+                Some(Token::Lparen) => self.parse_call_expression(left)?,
+                _ => self.parse_infix_expression(left)?,
+            }
         }
 
         Ok(left)
@@ -341,6 +346,41 @@ impl Parser {
         Ok(statements)
     }
 
+    fn parse_call_expression(&mut self, function: Expression) -> Result<Expression> {
+        let arguments = self.parse_call_arguments()?;
+
+        Ok(Expression::Call(Box::from(function), arguments))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>> {
+        let mut args = vec![];
+
+        if self.peek_token == Some(Token::Rparen) {
+            self.next_token();
+            return Ok(args);
+        }
+        self.next_token();
+
+        args.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token == Some(Token::Comma) {
+            self.next_token();
+            self.next_token();
+            args.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        if self.peek_token != Some(Token::Rparen) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Rparen,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        Ok(args)
+    }
+
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
         let curr_token = self.curr_token.clone();
         let precedence = get_precedence(&curr_token.clone().unwrap());
@@ -395,6 +435,7 @@ impl Parser {
 
 fn get_precedence(tok: &Token) -> Precedence {
     match tok {
+        Token::Lparen => Precedence::Call,
         Token::Eq | Token::Neq => Precedence::Equals,
         Token::Lt | Token::Gt => Precedence::Lessgreater,
         Token::Plus | Token::Minus => Precedence::Sum,
@@ -983,6 +1024,88 @@ mod tests {
                 }
                 _ => assert!(false),
             }
+        }
+    }
+
+    #[test]
+    fn test_call_parsing_expression() {
+        let input = String::from("add(1, 2 * 3, 4 + 5);");
+
+        let expected_expressions = [Expression::Call(
+            Box::from(Expression::Ident(String::from("add"))),
+            vec![
+                Expression::Literal(1),
+                Expression::InfixExpr(
+                    Infix::Asterisk,
+                    Box::from(Expression::Literal(2)),
+                    Box::from(Expression::Literal(3)),
+                ),
+                Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::Literal(4)),
+                    Box::from(Expression::Literal(5)),
+                ),
+            ],
+        )];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_operator_precendence_parsing() {
+        let input = String::from(
+            "a + add(b * c) + d;
+            add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));
+            add(a + b + c * d / f + g);",
+        );
+
+        let expected_result = String::from(
+            "((a + add((b * c))) + d);
+            add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)));
+            add((((a + b) + ((c * d) / f)) + g));",
+        );
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        dbg!(&program);
+
+        let lexer2 = Lexer::new(expected_result);
+        let mut parser2 = Parser::new(lexer2);
+        let program2 = parser2.parse_program();
+        dbg!(&program2);
+
+        if program.len() != program2.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                program2.len(),
+                program.len()
+            );
+        }
+
+        for i in 0..program.len() {
+            assert_eq!(program[i], program2[i])
         }
     }
 }
