@@ -1,20 +1,27 @@
 use std::io;
 use anyhow::Result;
 use crate::lexer::Lexer;
-use crate::token::Token;
+use crate::parser::Parser;
+use crate::eval::Evaluator;
 
 const PROMPT: &'static str = ">>";
 
 pub fn start() -> Result<()> {
-    let mut buffer = String::new();
-    io::stdin().read_line(&mut buffer)?;
 
-    let mut lexer = Lexer::new(buffer);
-    let mut token = lexer.next_token();
-    while token != Token::Eof {
-        print!("{PROMPT}");
-        println!("{token:?}");
-        token = lexer.next_token();
+    while true {
+        let mut buffer = String::new();
+        io::stdin().read_line(&mut buffer)?;
+
+        let mut lexer = Lexer::new(buffer.clone());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+    
+        let mut evaluator = Evaluator::new();
+    
+        let object = evaluator.eval_program(program);
+    
+        println!("{object:?}");
     }
+
     Ok(())
 }

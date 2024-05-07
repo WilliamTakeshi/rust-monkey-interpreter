@@ -4,14 +4,14 @@ use crate::ast::{self, Expression, Program};
 use crate::object::Object;
 // use crate::token::Token;
 
-struct Evaluator {}
+pub struct Evaluator {}
 
 impl Evaluator {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {}
     }
 
-    fn eval_program(&mut self, program: Program) -> Object {
+    pub fn eval_program(&mut self, program: Program) -> Object {
         match program.len() {
             0 => Object::Null,
             _ => self.eval_statements(program),
