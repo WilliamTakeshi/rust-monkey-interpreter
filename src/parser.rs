@@ -472,8 +472,6 @@ mod tests {
             );
         }
 
-        dbg!(&program);
-
         for i in 0..expected_statements.len() {
             assert_eq!(program[i], expected_statements[i]);
         }
@@ -511,8 +509,6 @@ mod tests {
                 program.len()
             );
         }
-
-        dbg!(&program);
 
         for i in 0..expected_statements.len() {
             assert_eq!(program[i], expected_statements[i]);
@@ -898,6 +894,7 @@ mod tests {
 
     #[test]
     fn test_if_expression() {
+        // TODO: FIX TO PARSE if (x < y) { x } else { y };
         let input = String::from(
             "if (x < y) { x; };
             if (x < y) { x; } else { y; };",
@@ -1098,12 +1095,10 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
-        dbg!(&program);
 
         let lexer2 = Lexer::new(expected_result);
         let mut parser2 = Parser::new(lexer2);
         let program2 = parser2.parse_program();
-        dbg!(&program2);
 
         if program.len() != program2.len() {
             panic!(
