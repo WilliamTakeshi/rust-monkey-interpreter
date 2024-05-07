@@ -158,6 +158,9 @@ impl Evaluator {
         auternative: Block,
     ) -> Object {
         let condition = self.eval_expr(condition);
+        if self.is_error(&condition) {
+            return condition;
+        }
         if self.is_truthy(condition) {
             self.eval_block(consequence)
         } else {
