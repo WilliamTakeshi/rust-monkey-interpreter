@@ -406,8 +406,8 @@ mod tests {
             ("if (1) { 10 }", Object::Integer(10)),
             ("if (1 < 2) { 10 }", Object::Integer(10)),
             ("if (1 > 2) { 10 }", Object::Null),
-            ("if (1 > 2) { 10; } else { 20 }", Object::Integer(20)),
-            ("if (1 < 2) { 10; } else { 20 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
         ];
 
         for i in 0..tests.len() {
@@ -426,11 +426,11 @@ mod tests {
             ("9; return 2 * 5; 9;", Object::Integer(10)),
             (
                 "if (10 > 1) {
-                if (10 > 1) {
-                    return 10;
-                }
+                    if (10 > 1) {
+                        return 10;
+                    }
                 return 1;
-            })",
+                }",
                 Object::Integer(10),
             ),
         ];
@@ -451,7 +451,7 @@ mod tests {
             ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
             ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
             (
-                "if (10 > 1) { true + false; }",
+                "if (10 > 1) { true + false }",
                 "unknown operator: BOOLEAN + BOOLEAN",
             ),
             (

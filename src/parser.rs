@@ -117,33 +117,17 @@ impl Parser {
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
-        let statement = match &self.curr_token {
-            Some(Token::Ident(_))
-            | Some(Token::If)
-            | Some(Token::Int(_))
-            | Some(Token::True)
-            | Some(Token::False)
-            | Some(Token::Bang)
-            | Some(Token::Function)
-            | Some(Token::Lparen)
-            | Some(Token::Minus) => {
-                let expr = self.parse_expression(Precedence::Lowest)?;
-                Ok(Statement::ExpressionStmt(expr))
-            }
+        let expr = self.parse_expression(Precedence::Lowest)?;
 
-            None => Err(anyhow!(
-                "Expected token: {:?}, Found nothing",
-                Token::Ident(String::from("something"))
-            )),
-            _ => todo!(),
-        };
+        if self.peek_token == Some(Token::Semicolon) {
+            self.next_token();
+        }
 
-        self.next_token();
-
-        statement
+        Ok(Statement::ExpressionStmt(expr))
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
+        dbg!(&self.curr_token);
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),
@@ -894,10 +878,9 @@ mod tests {
 
     #[test]
     fn test_if_expression() {
-        // TODO: FIX TO PARSE if (x < y) { x } else { y };
         let input = String::from(
             "if (x < y) { x; };
-            if (x < y) { x; } else { y; };",
+            if (x < y) { x } else { y };",
         );
 
         let expected_expressions = [
@@ -952,7 +935,7 @@ mod tests {
 
     #[test]
     fn test_fn_expression() {
-        let input = String::from("fn(x, y) { x + y; };");
+        let input = String::from("fn(x, y) { x + y };");
 
         let expected_expressions = [Expression::FnLiteral(
             vec![
