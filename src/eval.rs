@@ -14,8 +14,16 @@ impl Evaluator {
     }
 
     pub fn eval_program(&mut self, program: Program) -> Object {
+        dbg!(&program);
         match program.len() {
             0 => Object::Null,
+            1 => {
+                let obj = self.eval_statement(program[0].clone());
+                match obj {
+                    Object::Return(obj) => return *obj,
+                    _ => obj
+                }
+            },
             _ => self.eval_statements(program),
         }
     }
@@ -23,7 +31,24 @@ impl Evaluator {
     fn eval_statements(&mut self, statements: Vec<ast::Statement>) -> Object {
         let mut result = Object::Null;
         for statement in statements {
-            result = self.eval_statement(statement)
+            result = self.eval_statement(statement.clone());
+
+            if let Object::Return(obj) = result {
+                return *obj;
+            }
+        }
+
+        result
+    }
+
+    fn eval_block(&mut self, statements: Vec<ast::Statement>) -> Object {
+        let mut result = Object::Null;
+        for statement in statements {
+            result = self.eval_statement(statement.clone());
+
+            if let Object::Return(_) = &result {
+                return result;
+            }
         }
 
         result
@@ -33,9 +58,10 @@ impl Evaluator {
         match statement {
             ast::Statement::ExpressionStmt(expr) => self.eval_expr(expr),
             ast::Statement::Let(_, _) => todo!(),
-            ast::Statement::Return(_) => todo!(),
+            ast::Statement::Return(expr) => Object::Return(Box::from(self.eval_expr(expr))),
         }
     }
+
 
     fn eval_expr(&mut self, expr: ast::Expression) -> Object {
         match expr {
@@ -112,9 +138,9 @@ impl Evaluator {
     fn eval_if_expression(&mut self, condition: Expression, consequence: Block, auternative: Block) -> Object {
         let condition = self.eval_expr(condition);
         if self.is_truthy(condition) {
-            self.eval_statements(consequence)
+            self.eval_block(consequence)
         } else {
-            self.eval_statements(auternative)
+            self.eval_block(auternative)
         }
     }
 
@@ -242,6 +268,28 @@ mod tests {
             ("if (1 > 2) { 10 }", Object::Null),
             ("if (1 > 2) { 10; } else { 20 }", Object::Integer(20)),
             ("if (1 < 2) { 10; } else { 20 }", Object::Integer(10)),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests = vec![
+            ("return 10;", Object::Integer(10)),
+            ("return 10; 9;", Object::Integer(10)),
+            ("return 2 * 5; 9;", Object::Integer(10)),
+            ("9; return 2 * 5; 9;", Object::Integer(10)),
+            ("if (10 > 1) {
+                if (10 > 1) {
+                    return 10;
+                }
+                return 1;
+            })", Object::Integer(10)),
         ];
 
         for i in 0..tests.len() {

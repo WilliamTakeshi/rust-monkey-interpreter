@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let(String, Expression),
     Return(Expression),
@@ -10,7 +10,7 @@ pub type Block = Vec<Statement>;
 pub type Program = Vec<Statement>;
 
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Ident(String),
     Literal(u64),
@@ -22,13 +22,13 @@ pub enum Expression {
     Call(Box<Expression>, Vec<Expression>)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Prefix {
     Minus,
     Bang,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Infix {
     Eq,
     Neq,

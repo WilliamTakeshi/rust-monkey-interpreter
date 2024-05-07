@@ -1095,7 +1095,6 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
-
         let lexer2 = Lexer::new(expected_result);
         let mut parser2 = Parser::new(lexer2);
         let program2 = parser2.parse_program();
@@ -1112,4 +1111,5 @@ mod tests {
             assert_eq!(program[i], program2[i])
         }
     }
+
 }
