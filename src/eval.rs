@@ -1,16 +1,23 @@
+use std::cell::RefCell;
 use std::ops::RemAssign;
 use std::os::linux::raw::stat;
 use std::path::Prefix;
+use std::rc::Rc;
 
+use crate::object::environment::Environment;
 use crate::ast::{self, Block, Expression, Program};
-use crate::object::Object;
+use crate::object::object::Object;
 // use crate::token::Token;
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    environment: Rc<RefCell<Environment>>,
+}
 
 impl Evaluator {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            environment: Rc::new(RefCell::new(Environment::new()))
+        }
     }
 
     pub fn eval_program(&mut self, program: Program) -> Object {
@@ -60,7 +67,14 @@ impl Evaluator {
     fn eval_statement(&mut self, statement: ast::Statement) -> Object {
         match statement {
             ast::Statement::ExpressionStmt(expr) => self.eval_expr(expr),
-            ast::Statement::Let(_, _) => todo!(),
+            ast::Statement::Let(ident, expression) => {
+                let val = self.eval_expr(expression);
+                if self.is_error(&val) {
+                    return val
+                }
+                let mut env = self.environment.borrow_mut();
+                env.set(ident, val)
+            },
             ast::Statement::Return(expr) => {
                 let val = self.eval_expr(expr);
                 if self.is_error(&val) {
@@ -70,18 +84,18 @@ impl Evaluator {
         }
     }
 
-    fn eval_expr(&mut self, expr: ast::Expression) -> Object {
+    fn eval_expr(&mut self, expr: Expression) -> Object {
         match expr {
-            ast::Expression::Literal(num) => Object::Integer(num as i64),
-            ast::Expression::Boolean(bool) => Object::Boolean(bool),
-            ast::Expression::PrefixExpr(op, right) => {
+            Expression::Literal(num) => Object::Integer(num as i64),
+            Expression::Boolean(bool) => Object::Boolean(bool),
+            Expression::PrefixExpr(op, right) => {
                 let right = self.eval_expr(*right);
                 if self.is_error(&right) {
                     return right;
                 }
                 self.eval_prefix_expression(op, right)
             }
-            ast::Expression::InfixExpr(op, left, right) => {
+            Expression::InfixExpr(op, left, right) => {
                 let left = self.eval_expr(*left);
                 if self.is_error(&left) {
                     return left;
@@ -92,11 +106,17 @@ impl Evaluator {
                 }
                 self.eval_infix_expression(op, left, right)
             }
-            ast::Expression::IfExpr(condition, consequence, alternative) => {
+            Expression::IfExpr(condition, consequence, alternative) => {
                 self.eval_if_expression(*condition, consequence, alternative)
             }
 
-            // Ident(String) =>
+            Expression::Ident(ident) => {
+                let env = self.environment.borrow();
+                match env.get(ident.clone()) {
+                    Some(obj) => obj.clone(),
+                    None => Object::Err(format!("identifier not found: {}", ident)),
+                }
+            }
             // IfExpr(Box<Expression>, Block, Block) =>
             // FnLiteral(Vec<Expression>, Block) =>
             // Call(Box<Expression>, Vec<Expression>) =>
@@ -360,6 +380,23 @@ mod tests {
             let evaluated = test_eval(String::from(tests[i].0));
 
             assert_eq!(evaluated, Object::Err(String::from(tests[i].1)));
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        let tests = vec![
+            ("let a = 5; a;", Object::Integer(5)),
+            ("let a = 5 * 5; a;", Object::Integer(25)),
+            ("let a = 5; let b = a; b;", Object::Integer(5)),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", Object::Integer(15)),
+            ("foobar", Object::Err(String::from("identifier not found: foobar"))),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
         }
     }
 }

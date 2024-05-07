@@ -8,19 +8,29 @@ const PROMPT: &'static str = ">>";
 
 pub fn start() -> Result<()> {
 
-    while true {
-        let mut buffer = String::new();
-        io::stdin().read_line(&mut buffer)?;
+    let mut evaluator = Evaluator::new();
+    loop {
+        // Print prompt and flush to write it to console
+        print!("{}", PROMPT);
+        io::Write::flush(&mut io::stdout()).expect("flush failed!");
 
-        let mut lexer = Lexer::new(buffer.clone());
+        // Scan Input line
+        let mut buffer = String::new();
+        match io::stdin().read_line(&mut buffer) {
+            Err(error) => {
+                println!("error: {}", error);
+                return Ok(());
+            }
+            Ok(_) => (),
+        }
+        // Create Lexer
+        let lexer = Lexer::new(buffer);
         let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
-    
-        let mut evaluator = Evaluator::new();
-    
-        let object = evaluator.eval_program(program);
-    
-        println!("{object:?}");
+
+        let mut program = parser.parse_program();
+
+        let outcome = evaluator.eval_program(program);
+        println!("{:?}", outcome);
     }
 
     Ok(())
