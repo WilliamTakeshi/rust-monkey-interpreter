@@ -76,7 +76,8 @@ impl Evaluator {
                     return val;
                 }
                 let mut env = self.environment.borrow_mut();
-                env.set(ident, val)
+                env.set(ident, val);
+                Object::Null
             }
             Statement::Return(expr) => {
                 let val = self.eval_expr(expr);
@@ -222,7 +223,7 @@ impl Evaluator {
             Object::Fn {
                 parameters,
                 body,
-                env: _,
+                env,
             } => {
                 if parameters.len() != args.len() {
                     return Object::Err(format!(
@@ -231,7 +232,7 @@ impl Evaluator {
                         parameters.len()
                     ));
                 }
-                let extended_env = self.extend_function_env(parameters, args);
+                let extended_env = self.extend_function_env(env, parameters, args);
                 let mut evaluator = Evaluator::new_with_env(extended_env);
                 let evaluated = evaluator.eval_statements(body);
                 self.unwrap_return_value(evaluated)
@@ -240,8 +241,13 @@ impl Evaluator {
         }
     }
 
-    fn extend_function_env(&mut self, function: Vec<Expression>, args: Vec<Object>) -> Environment {
-        let mut environment = Environment::new_enclosed_environment(self.environment.clone());
+    fn extend_function_env(
+        &mut self,
+        outer: Rc<RefCell<Environment>>,
+        function: Vec<Expression>,
+        args: Vec<Object>,
+    ) -> Environment {
+        let mut environment = Environment::new_enclosed_environment(outer);
 
         for (idx, arg) in args.iter().enumerate() {
             match &function[idx] {
@@ -549,23 +555,21 @@ mod tests {
             assert_eq!(evaluated, tests[i].1);
         }
     }
-    // #[test]
-    // fn test_closures() {
-    //     let tests = vec![
-    //         (
-    //             "let newAdder = fn(x) {
-    //                 fn(y) { x + y; };
-    //             };
-    //             let addTwo = newAdder(2);
-    //             addTwo(2);",
-    //             Object::Integer(4),
-    //         ),
-    //     ];
+    #[test]
+    fn test_closures() {
+        let tests = vec![(
+            "let newAdder = fn(x) {
+                    fn(y) { x + y };
+                };
+                let addTwo = newAdder(2);
+                addTwo(2);",
+            Object::Integer(4),
+        )];
 
-    //     for i in 0..tests.len() {
-    //         let evaluated = test_eval(String::from(tests[i].0));
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
 
-    //         assert_eq!(evaluated, tests[i].1);
-    //     }
-    // }
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
 }

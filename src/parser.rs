@@ -127,7 +127,6 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
-        dbg!(&self.curr_token);
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),
