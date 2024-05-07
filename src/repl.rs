@@ -27,11 +27,9 @@ pub fn start() -> Result<()> {
         let lexer = Lexer::new(buffer);
         let mut parser = Parser::new(lexer);
 
-        let mut program = parser.parse_program();
+        let program = parser.parse_program();
 
         let outcome = evaluator.eval_program(program);
         println!("{:?}", outcome);
     }
-
-    Ok(())
 }
