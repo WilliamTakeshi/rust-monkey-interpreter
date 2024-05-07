@@ -61,7 +61,12 @@ impl Evaluator {
         match statement {
             ast::Statement::ExpressionStmt(expr) => self.eval_expr(expr),
             ast::Statement::Let(_, _) => todo!(),
-            ast::Statement::Return(expr) => Object::Return(Box::from(self.eval_expr(expr))),
+            ast::Statement::Return(expr) => {
+                let val = self.eval_expr(expr);
+                if self.is_error(&val) {
+                    return val;
+                }
+                Object::Return(Box::from(val))},
         }
     }
 
@@ -71,12 +76,20 @@ impl Evaluator {
             ast::Expression::Boolean(bool) => Object::Boolean(bool),
             ast::Expression::PrefixExpr(op, right) => {
                 let right = self.eval_expr(*right);
+                if self.is_error(&right) {
+                    return right;
+                }
                 self.eval_prefix_expression(op, right)
             }
             ast::Expression::InfixExpr(op, left, right) => {
                 let left = self.eval_expr(*left);
+                if self.is_error(&left) {
+                    return left;
+                }
                 let right = self.eval_expr(*right);
-
+                if self.is_error(&right) {
+                    return right;
+                }
                 self.eval_infix_expression(op, left, right)
             }
             ast::Expression::IfExpr(condition, consequence, alternative) => {
@@ -157,6 +170,13 @@ impl Evaluator {
             Object::Null => false,
             Object::Boolean(b) => b,
             _ => true,
+        }
+    }
+
+    fn is_error(&self, obj: &Object) -> bool {
+        match obj {
+            Object::Err(_) => true,
+            _ => false,
         }
     }
 }
