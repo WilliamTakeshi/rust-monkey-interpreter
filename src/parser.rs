@@ -15,14 +15,14 @@ enum Precedence {
 }
 
 #[derive(Debug)]
-struct Parser {
+pub struct Parser {
     lexer: Lexer,
     curr_token: Option<Token>,
     peek_token: Option<Token>,
 }
 
 impl Parser {
-    fn new(lexer: Lexer) -> Self {
+    pub fn new(lexer: Lexer) -> Self {
         let mut parser = Parser {
             lexer,
             curr_token: None,
@@ -40,7 +40,7 @@ impl Parser {
         self.peek_token = Some(self.lexer.next_token());
     }
 
-    fn parse_program(&mut self) -> Program {
+    pub fn parse_program(&mut self) -> Program {
         let mut program: Program = vec![];
 
         while self.curr_token != Some(Token::Eof) {
@@ -144,7 +144,6 @@ impl Parser {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
-        dbg!(&self.curr_token);
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
             Some(Token::Int(num)) => Expression::Literal(*num),

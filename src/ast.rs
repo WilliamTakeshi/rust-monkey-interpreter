@@ -1,4 +1,16 @@
 #[derive(Debug, PartialEq)]
+pub enum Statement {
+    Let(String, Expression),
+    Return(Expression),
+    ExpressionStmt(Expression),
+}
+
+pub type Block = Vec<Statement>;
+
+pub type Program = Vec<Statement>;
+
+
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Ident(String),
     Literal(u64),
@@ -27,14 +39,3 @@ pub enum Infix {
     Slash,
     Asterisk,
 }
-
-#[derive(Debug, PartialEq)]
-pub enum Statement {
-    Let(String, Expression),
-    Return(Expression),
-    ExpressionStmt(Expression),
-}
-
-pub type Block = Vec<Statement>;
-
-pub type Program = Vec<Statement>;
