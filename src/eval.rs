@@ -14,16 +14,15 @@ impl Evaluator {
     }
 
     pub fn eval_program(&mut self, program: Program) -> Object {
-        dbg!(&program);
         match program.len() {
             0 => Object::Null,
             1 => {
                 let obj = self.eval_statement(program[0].clone());
                 match obj {
                     Object::Return(obj) => return *obj,
-                    _ => obj
+                    _ => obj,
                 }
-            },
+            }
             _ => self.eval_statements(program),
         }
     }
@@ -33,8 +32,10 @@ impl Evaluator {
         for statement in statements {
             result = self.eval_statement(statement.clone());
 
-            if let Object::Return(obj) = result {
-                return *obj;
+            result = match result {
+                Object::Return(obj) => return *obj,
+                Object::Err(_) => return result,
+                _ => result
             }
         }
 
@@ -46,8 +47,10 @@ impl Evaluator {
         for statement in statements {
             result = self.eval_statement(statement.clone());
 
-            if let Object::Return(_) = &result {
-                return result;
+            result = match result {
+                Object::Return(_) => return result,
+                Object::Err(_) => return result,
+                _ => result
             }
         }
 
@@ -61,7 +64,6 @@ impl Evaluator {
             ast::Statement::Return(expr) => Object::Return(Box::from(self.eval_expr(expr))),
         }
     }
-
 
     fn eval_expr(&mut self, expr: ast::Expression) -> Object {
         match expr {
@@ -99,7 +101,7 @@ impl Evaluator {
             },
             ast::Prefix::Minus => match right {
                 Object::Integer(num) => Object::Integer(-num),
-                obj => panic!("Function not defined: -{:?}", obj),
+                obj => Object::Err(format!("unknown operator: -{}", obj.obj_type())),
             },
         }
     }
@@ -110,7 +112,7 @@ impl Evaluator {
                 self.eval_integer_infix_expression(op, l, r)
             }
             (Object::Boolean(l), Object::Boolean(r)) => self.eval_bool_infix_expression(op, l, r),
-            _ => Object::Null,
+            (left, right) => Object::Err(format!("type mismatch: {} {} {}", left.obj_type(), op.to_string(), right.obj_type())),
         }
     }
 
@@ -128,14 +130,20 @@ impl Evaluator {
     }
 
     fn eval_bool_infix_expression(&self, op: ast::Infix, left: bool, right: bool) -> Object {
-        match op {
+        match &op {
             ast::Infix::Eq => Object::Boolean(left == right),
             ast::Infix::Neq => Object::Boolean(left != right),
-            obj => panic!("Function not defined: {left:?} {obj:?} {right:?}"),
+            _ => Object::Err(format!("unknown operator: BOOLEAN {} BOOLEAN", op.to_string())),
+
         }
     }
 
-    fn eval_if_expression(&mut self, condition: Expression, consequence: Block, auternative: Block) -> Object {
+    fn eval_if_expression(
+        &mut self,
+        condition: Expression,
+        consequence: Block,
+        auternative: Block,
+    ) -> Object {
         let condition = self.eval_expr(condition);
         if self.is_truthy(condition) {
             self.eval_block(consequence)
@@ -284,18 +292,51 @@ mod tests {
             ("return 10; 9;", Object::Integer(10)),
             ("return 2 * 5; 9;", Object::Integer(10)),
             ("9; return 2 * 5; 9;", Object::Integer(10)),
-            ("if (10 > 1) {
+            (
+                "if (10 > 1) {
                 if (10 > 1) {
                     return 10;
                 }
                 return 1;
-            })", Object::Integer(10)),
+            })",
+                Object::Integer(10),
+            ),
         ];
 
         for i in 0..tests.len() {
             let evaluated = test_eval(String::from(tests[i].0));
 
             assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+            ("-true", "unknown operator: -BOOLEAN"),
+            ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+            ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "if (10 > 1) { true + false; }",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }",
+                "unknown operator: BOOLEAN + BOOLEAN",
+            ),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, Object::Err(String::from(tests[i].1)));
         }
     }
 }

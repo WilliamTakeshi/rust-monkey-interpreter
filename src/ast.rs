@@ -39,3 +39,18 @@ pub enum Infix {
     Slash,
     Asterisk,
 }
+
+impl ToString for Infix {
+    fn to_string(&self) -> String {
+        match &self {
+            Self::Eq => String::from("=="),
+            Self::Neq => String::from("!="),
+            Self::Lt => String::from("<"),
+            Self::Gt => String::from(">"),
+            Self::Plus => String::from("+"),
+            Self::Minus => String::from("-"),
+            Self::Slash => String::from("/"),
+            Self::Asterisk => String::from("*"),
+        }
+    }
+}
