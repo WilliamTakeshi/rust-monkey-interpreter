@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{Block, Expression, Infix, Prefix, Program, Statement};
+use crate::object::buildin::get_builtin_functions;
 use crate::object::environment::Environment;
 use crate::object::object::Object;
 // use crate::token::Token;
@@ -115,13 +116,8 @@ impl Evaluator {
             Expression::IfExpr(condition, consequence, alternative) => {
                 self.eval_if_expression(*condition, consequence, alternative)
             }
-
             Expression::Ident(ident) => {
-                let env = self.environment.borrow();
-                match env.get(ident.clone()) {
-                    Some(obj) => obj.clone(),
-                    None => Object::Err(format!("identifier not found: {}", ident)),
-                }
+                self.eval_ident(ident)
             }
             Expression::FnLiteral(parameters, body) => Object::Fn {
                 parameters: parameters,
@@ -132,6 +128,23 @@ impl Evaluator {
                 self.eval_call_expression(*function, arguments)
             }
         }
+    }
+
+    fn eval_ident(&mut self, ident: String) -> Object {
+        let env = self.environment.borrow();
+        // match env.get(ident.clone()) {
+        //     Some(obj) => obj.clone(),
+        //     None => Object::Err(format!("identifier not found: {}", ident)),
+        // }
+        if let Some(obj) = env.get(ident.clone()) {
+            return obj.clone()
+        }
+
+        let hm = get_builtin_functions();
+        if let Some(obj) = hm.get(&ident) {
+            return obj.clone()
+        }
+        Object::Err(format!("identifier not found: {}", ident))
     }
 
     fn eval_prefix_expression(&mut self, op: Prefix, right: Object) -> Object {
@@ -248,6 +261,13 @@ impl Evaluator {
                 let mut evaluator = Evaluator::new_with_env(extended_env);
                 let evaluated = evaluator.eval_statements(body);
                 self.unwrap_return_value(evaluated)
+            }
+            Object::Buildin(_, param_num, function) => {
+                if args.len() == param_num as usize {
+                    function(args)
+                } else {
+                    Object::Err(format!("wrong number of arguments. got={}, want={}", args.len(), param_num))
+                }
             }
             _ => Object::Err(format!("not a function: {}", function.obj_type())),
         }
@@ -610,6 +630,23 @@ mod tests {
             "#,
             Object::String(String::from("hello world!")),
         )];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_builtin_functions() {
+        let tests = vec![
+            (r#"len("");"#, Object::Integer(0)),
+            (r#"len("four");"#, Object::Integer(4)),
+            (r#"len("hello world");"#, Object::Integer(11)),
+            (r#"len(1);"#, Object::Err(String::from("argument to 'len' not supported, got INTEGER"))),
+            (r#"len("one", "two");"#, Object::Err(String::from("wrong number of arguments. got=2, want=1"))),
+        ];
 
         for i in 0..tests.len() {
             let evaluated = test_eval(String::from(tests[i].0));
