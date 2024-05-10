@@ -8,6 +8,7 @@ use super::environment::Environment;
 pub enum Object {
     Boolean(bool),
     Integer(i64),
+    String(String),
     Null,
     Return(Box<Object>),
     Err(String),
@@ -23,6 +24,7 @@ impl Object {
         match &self {
             Self::Boolean(_) => String::from("BOOLEAN"),
             Self::Integer(_) => String::from("INTEGER"),
+            Self::String(_) => String::from("STRING"),
             Self::Null => String::from("NULL"),
             Self::Return(_) => String::from("RETURN"),
             Self::Err(_) => String::from("ERROR"),

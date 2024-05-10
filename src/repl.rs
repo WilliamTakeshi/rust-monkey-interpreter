@@ -4,7 +4,7 @@ use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::eval::Evaluator;
 
-const PROMPT: &'static str = ">>";
+const PROMPT: &'static str = ">> ";
 
 pub fn start() -> Result<()> {
 

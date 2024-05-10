@@ -31,6 +31,9 @@ pub enum Token {
     // Integer
     Int(u64),
 
+    // String
+    String(String),
+
     // Operators
     Assign,
     Plus,

@@ -91,8 +91,9 @@ impl Evaluator {
 
     fn eval_expr(&mut self, expr: Expression) -> Object {
         match expr {
-            Expression::Literal(num) => Object::Integer(num as i64),
+            Expression::IntLiteral(num) => Object::Integer(num as i64),
             Expression::Boolean(bool) => Object::Boolean(bool),
+            Expression::StringLiteral(s) => Object::String(s),
             Expression::PrefixExpr(op, right) => {
                 let right = self.eval_expr(*right);
                 if self.is_error(&right) {
@@ -154,11 +155,22 @@ impl Evaluator {
                 self.eval_integer_infix_expression(op, l, r)
             }
             (Object::Boolean(l), Object::Boolean(r)) => self.eval_bool_infix_expression(op, l, r),
+            (Object::String(l), Object::String(r)) => self.eval_string_infix_expression(op, l, r),
             (left, right) => Object::Err(format!(
                 "type mismatch: {} {} {}",
                 left.obj_type(),
                 op.to_string(),
                 right.obj_type()
+            )),
+        }
+    }
+
+    fn eval_string_infix_expression(&self, op: Infix, left: String, right: String) -> Object {
+        match op {
+            Infix::Plus => Object::String(format!("{}{}", left, right)),
+            _ => Object::Err(format!(
+                "unknown operator: STRING {} STRING",
+                op.to_string()
             )),
         }
     }
@@ -469,6 +481,7 @@ mod tests {
                 }",
                 "unknown operator: BOOLEAN + BOOLEAN",
             ),
+            (r#""hello" - "world""#, "unknown operator: STRING - STRING"),
         ];
 
         for i in 0..tests.len() {
@@ -510,7 +523,7 @@ mod tests {
                 body: vec![Statement::ExpressionStmt(Expression::InfixExpr(
                     Infix::Plus,
                     Box::from(Expression::Ident(String::from("x"))),
-                    Box::from(Expression::Literal(2)),
+                    Box::from(Expression::IntLiteral(2)),
                 ))],
                 env: Rc::new(RefCell::new(Environment::new())),
             },
@@ -564,6 +577,38 @@ mod tests {
                 let addTwo = newAdder(2);
                 addTwo(2);",
             Object::Integer(4),
+        )];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let tests = vec![(
+            r#"
+            "hello world!";
+            "#,
+            Object::String(String::from("hello world!")),
+        )];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_string_concat() {
+        let tests = vec![(
+            r#"
+            "hello" + " world!";
+            "#,
+            Object::String(String::from("hello world!")),
         )];
 
         for i in 0..tests.len() {

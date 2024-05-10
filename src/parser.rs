@@ -129,7 +129,8 @@ impl Parser {
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
         let mut left = match &self.curr_token {
             Some(Token::Ident(ident)) => Expression::Ident(String::from(ident)),
-            Some(Token::Int(num)) => Expression::Literal(*num),
+            Some(Token::Int(num)) => Expression::IntLiteral(*num),
+            Some(Token::String(s)) => Expression::StringLiteral(s.clone()),
             Some(Token::True) => Expression::Boolean(true),
             Some(Token::False) => Expression::Boolean(false),
             Some(Token::Lparen) => self.parse_grouped_expression()?,
@@ -437,9 +438,9 @@ mod tests {
         );
 
         let expected_statements = [
-            Statement::Let(String::from("x"), Expression::Literal(5)),
-            Statement::Let(String::from("y"), Expression::Literal(10)),
-            Statement::Let(String::from("foobar"), Expression::Literal(838383)),
+            Statement::Let(String::from("x"), Expression::IntLiteral(5)),
+            Statement::Let(String::from("y"), Expression::IntLiteral(10)),
+            Statement::Let(String::from("foobar"), Expression::IntLiteral(838383)),
         ];
 
         let lexer = Lexer::new(input);
@@ -470,13 +471,13 @@ mod tests {
         );
 
         let expected_statements = [
-            Statement::Return(Expression::Literal(5)),
-            Statement::Return(Expression::Literal(10)),
-            Statement::Return(Expression::Literal(993322)),
+            Statement::Return(Expression::IntLiteral(5)),
+            Statement::Return(Expression::IntLiteral(10)),
+            Statement::Return(Expression::IntLiteral(993322)),
             Statement::Return(Expression::InfixExpr(
                 Infix::Plus,
-                Box::from(Expression::Literal(5)),
-                Box::from(Expression::Literal(6)),
+                Box::from(Expression::IntLiteral(5)),
+                Box::from(Expression::IntLiteral(6)),
             )),
         ];
 
@@ -539,7 +540,7 @@ mod tests {
         }
 
         match &program[0] {
-            Statement::ExpressionStmt(Expression::Literal(num)) => assert_eq!(num, &5),
+            Statement::ExpressionStmt(Expression::IntLiteral(num)) => assert_eq!(num, &5),
             _ => assert!(false),
         }
     }
@@ -553,9 +554,9 @@ mod tests {
         );
 
         let expected_expressions = [
-            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::Literal(5))),
-            Expression::PrefixExpr(Prefix::Minus, Box::from(Expression::Literal(15))),
-            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::Literal(7))),
+            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::IntLiteral(5))),
+            Expression::PrefixExpr(Prefix::Minus, Box::from(Expression::IntLiteral(15))),
+            Expression::PrefixExpr(Prefix::Bang, Box::from(Expression::IntLiteral(7))),
         ];
 
         let lexer = Lexer::new(input);
@@ -596,43 +597,43 @@ mod tests {
         let expected_expressions = [
             Expression::InfixExpr(
                 Infix::Plus,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Minus,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Asterisk,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Slash,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Gt,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Lt,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Eq,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::InfixExpr(
                 Infix::Neq,
-                Box::from(Expression::Literal(1)),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(1)),
+                Box::from(Expression::IntLiteral(5)),
             ),
         ];
 
@@ -672,40 +673,40 @@ mod tests {
                 Infix::Plus,
                 Box::from(Expression::InfixExpr(
                     Infix::Plus,
-                    Box::from(Expression::Literal(1)),
-                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::IntLiteral(1)),
+                    Box::from(Expression::IntLiteral(5)),
                 )),
-                Box::from(Expression::Literal(7)),
+                Box::from(Expression::IntLiteral(7)),
             ),
             Expression::InfixExpr(
                 Infix::Minus,
-                Box::from(Expression::Literal(1)),
+                Box::from(Expression::IntLiteral(1)),
                 Box::from(Expression::InfixExpr(
                     Infix::Slash,
-                    Box::from(Expression::Literal(5)),
-                    Box::from(Expression::Literal(6)),
+                    Box::from(Expression::IntLiteral(5)),
+                    Box::from(Expression::IntLiteral(6)),
                 )),
             ),
             Expression::InfixExpr(
                 Infix::Plus,
                 Box::from(Expression::InfixExpr(
                     Infix::Asterisk,
-                    Box::from(Expression::Literal(1)),
-                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::IntLiteral(1)),
+                    Box::from(Expression::IntLiteral(5)),
                 )),
-                Box::from(Expression::Literal(2)),
+                Box::from(Expression::IntLiteral(2)),
             ),
             Expression::InfixExpr(
                 Infix::Plus,
                 Box::from(Expression::InfixExpr(
                     Infix::Asterisk,
-                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::IntLiteral(1)),
                     Box::from(Expression::PrefixExpr(
                         Prefix::Minus,
-                        Box::from(Expression::Literal(5)),
+                        Box::from(Expression::IntLiteral(5)),
                     )),
                 )),
-                Box::from(Expression::Literal(2)),
+                Box::from(Expression::IntLiteral(2)),
             ),
         ];
 
@@ -748,8 +749,8 @@ mod tests {
                 Infix::Eq,
                 Box::from(Expression::InfixExpr(
                     Infix::Gt,
-                    Box::from(Expression::Literal(3)),
-                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::IntLiteral(3)),
+                    Box::from(Expression::IntLiteral(5)),
                 )),
                 Box::from(Expression::Boolean(false)),
             ),
@@ -757,8 +758,8 @@ mod tests {
                 Infix::Neq,
                 Box::from(Expression::InfixExpr(
                     Infix::Lt,
-                    Box::from(Expression::Literal(3)),
-                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::IntLiteral(3)),
+                    Box::from(Expression::IntLiteral(5)),
                 )),
                 Box::from(Expression::Boolean(true)),
             ),
@@ -803,51 +804,51 @@ mod tests {
                 Infix::Plus,
                 Box::from(Expression::InfixExpr(
                     Infix::Plus,
-                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::IntLiteral(1)),
                     Box::from(Expression::InfixExpr(
                         Infix::Plus,
-                        Box::from(Expression::Literal(2)),
-                        Box::from(Expression::Literal(3)),
+                        Box::from(Expression::IntLiteral(2)),
+                        Box::from(Expression::IntLiteral(3)),
                     )),
                 )),
-                Box::from(Expression::Literal(4)),
+                Box::from(Expression::IntLiteral(4)),
             ),
             Expression::InfixExpr(
                 Infix::Plus,
-                Box::from(Expression::Literal(1)),
+                Box::from(Expression::IntLiteral(1)),
                 Box::from(Expression::InfixExpr(
                     Infix::Plus,
                     Box::from(Expression::InfixExpr(
                         Infix::Plus,
-                        Box::from(Expression::Literal(2)),
-                        Box::from(Expression::Literal(3)),
+                        Box::from(Expression::IntLiteral(2)),
+                        Box::from(Expression::IntLiteral(3)),
                     )),
-                    Box::from(Expression::Literal(4)),
+                    Box::from(Expression::IntLiteral(4)),
                 )),
             ),
             Expression::InfixExpr(
                 Infix::Plus,
                 Box::from(Expression::InfixExpr(
                     Infix::Plus,
-                    Box::from(Expression::Literal(1)),
+                    Box::from(Expression::IntLiteral(1)),
                     Box::from(Expression::InfixExpr(
                         Infix::Plus,
                         Box::from(Expression::InfixExpr(
                             Infix::Plus,
-                            Box::from(Expression::Literal(2)),
-                            Box::from(Expression::Literal(3)),
+                            Box::from(Expression::IntLiteral(2)),
+                            Box::from(Expression::IntLiteral(3)),
                         )),
-                        Box::from(Expression::Literal(4)),
+                        Box::from(Expression::IntLiteral(4)),
                     )),
                 )),
-                Box::from(Expression::Literal(5)),
+                Box::from(Expression::IntLiteral(5)),
             ),
             Expression::PrefixExpr(
                 Prefix::Minus,
                 Box::from(Expression::InfixExpr(
                     Infix::Plus,
-                    Box::from(Expression::Literal(5)),
-                    Box::from(Expression::Literal(6)),
+                    Box::from(Expression::IntLiteral(5)),
+                    Box::from(Expression::IntLiteral(6)),
                 )),
             ),
         ];
@@ -1022,16 +1023,16 @@ mod tests {
         let expected_expressions = [Expression::Call(
             Box::from(Expression::Ident(String::from("add"))),
             vec![
-                Expression::Literal(1),
+                Expression::IntLiteral(1),
                 Expression::InfixExpr(
                     Infix::Asterisk,
-                    Box::from(Expression::Literal(2)),
-                    Box::from(Expression::Literal(3)),
+                    Box::from(Expression::IntLiteral(2)),
+                    Box::from(Expression::IntLiteral(3)),
                 ),
                 Expression::InfixExpr(
                     Infix::Plus,
-                    Box::from(Expression::Literal(4)),
-                    Box::from(Expression::Literal(5)),
+                    Box::from(Expression::IntLiteral(4)),
+                    Box::from(Expression::IntLiteral(5)),
                 ),
             ],
         )];
@@ -1094,4 +1095,34 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_string_literal_expression() {
+        let input = String::from(r#""hello world";"#);
+
+        let expected_expressions = [
+            Expression::StringLiteral(String::from("hello world"))
+        ];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
 }

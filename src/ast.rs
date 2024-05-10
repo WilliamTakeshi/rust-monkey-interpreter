@@ -13,8 +13,9 @@ pub type Program = Vec<Statement>;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
     Ident(String),
-    Literal(u64),
+    IntLiteral(u64),
     Boolean(bool),
+    StringLiteral(String),
     PrefixExpr(Prefix, Box<Expression>),
     InfixExpr(Infix, Box<Expression>, Box<Expression>),
     IfExpr(Box<Expression>, Block, Block),
