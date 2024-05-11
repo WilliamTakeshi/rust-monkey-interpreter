@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::ast::{Block, Expression, Infix, Prefix, Program, Statement};
@@ -146,8 +147,27 @@ impl Evaluator {
 
                 self.eval_index_expression(left, index)
             }
-            Expression::HashLiteral(_) => todo!(),
+            Expression::HashLiteral(nodes) => self.eval_hash_literal(nodes),
         }
+    }
+
+    fn eval_hash_literal(&mut self, nodes: Vec<(Expression, Expression)>) -> Object {
+        let mut pairs = HashMap::new();
+
+        for (key, value) in nodes {
+            let key = self.eval_expr(key);
+            if self.is_error(&key) {
+                return key;
+            }
+
+            let value = self.eval_expr(value);
+            if self.is_error(&value) {
+                return value;
+            }
+
+            pairs.insert(key, value);
+        }
+        Object::Hash(pairs)
     }
 
     fn eval_ident(&mut self, ident: String) -> Object {
@@ -341,6 +361,15 @@ impl Evaluator {
                 }
                 arr[idx as usize].clone()
             }
+            (Object::Hash(hm), index) => match index {
+                Object::Integer(_) | Object::String(_) | Object::Boolean(_) => {
+                    match hm.get(&index) {
+                        None => Object::Null,
+                        Some(o) => o.clone(),
+                    }
+                }
+                obj => Object::Err(format!("unusable as hash key: {}", obj.obj_type())),
+            },
             _ => Object::Err(format!("index operator not supported: {}", left.obj_type())),
         }
     }
@@ -370,6 +399,8 @@ impl Evaluator {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
@@ -539,6 +570,10 @@ mod tests {
                 "unknown operator: BOOLEAN + BOOLEAN",
             ),
             (r#""hello" - "world""#, "unknown operator: STRING - STRING"),
+            (
+                r#"{"name": "Monkey"}[fn(x) { x }];"#,
+                "unusable as hash key: FUNCTION",
+            ),
         ];
 
         for i in 0..tests.len() {
@@ -792,6 +827,54 @@ mod tests {
         for i in 0..tests.len() {
             let evaluated = test_eval(String::from(tests[i].0));
 
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let tests = vec![(
+            r#"
+                let two = "two";
+                {
+                    "one": 10 - 9,
+                    two: 1 + 1,
+                    "thr" + "ee": 6 / 2,
+                    4: 4,
+                    true: 5,
+                    false: 6
+                };
+            "#,
+            Object::Hash(HashMap::from([
+                (Object::String(String::from("one")), Object::Integer(1)),
+                (Object::String(String::from("two")), Object::Integer(2)),
+                (Object::String(String::from("three")), Object::Integer(3)),
+                (Object::Integer(4), Object::Integer(4)),
+                (Object::Boolean(true), Object::Integer(5)),
+                (Object::Boolean(false), Object::Integer(6)),
+            ])),
+        )];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_hash_index_expressions() {
+        let tests = vec![
+            (r#"{"foo": 5}["foo"]"#, Object::Integer(5)),
+            (r#"{"foo": 5}["bar"]"#, Object::Null),
+            (r#"let key = "foo"; {"foo": 5}[key]"#, Object::Integer(5)),
+            (r#"{}["foo"]"#, Object::Null),
+            (r#"{5: 5}[5]"#, Object::Integer(5)),
+            (r#"{true: 5}[true]"#, Object::Integer(5)),
+            (r#"{false: 5}[false]"#, Object::Integer(5)),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
             assert_eq!(evaluated, tests[i].1);
         }
     }

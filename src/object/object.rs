@@ -1,6 +1,6 @@
-use std::{cell::RefCell, rc::Rc};
-
 use crate::ast::{Block, Expression};
+use core::hash::{Hash, Hasher};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use super::{buildin::BuildinFunction, environment::Environment};
 
@@ -11,6 +11,7 @@ pub enum Object {
     String(String),
     Buildin(Expression, u32, BuildinFunction),
     Array(Vec<Object>),
+    Hash(HashMap<Object, Object>),
     Null,
     Return(Box<Object>),
     Err(String),
@@ -19,6 +20,17 @@ pub enum Object {
         body: Block,
         env: Rc<RefCell<Environment>>,
     },
+}
+
+impl Hash for Object {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            Object::Integer(i) => i.hash(state),
+            Object::Boolean(b) => b.hash(state),
+            Object::String(s) => s.hash(state),
+            _ => "".hash(state),
+        }
+    }
 }
 
 impl Object {
@@ -33,6 +45,7 @@ impl Object {
             Self::Err(_) => String::from("ERROR"),
             Self::Fn { .. } => String::from("FUNCTION"),
             Self::Array { .. } => String::from("ARRAY"),
+            Self::Hash { .. } => String::from("HASH"),
         }
     }
 }
