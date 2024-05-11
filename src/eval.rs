@@ -125,8 +125,27 @@ impl Evaluator {
             Expression::Call(function, arguments) => {
                 self.eval_call_expression(*function, arguments)
             }
-            Expression::ArrayLiteral(_) => todo!(),
-            Expression::IndexExpression(_, _) => todo!(),
+            Expression::ArrayLiteral(exprs) => {
+                let elements = self.eval_expressions(exprs);
+                if elements.len() == 1 && self.is_error(&elements[0]) {
+                    return elements[0].clone();
+                }
+
+                Object::Array(elements)
+            }
+            Expression::IndexExpression(left, index) => {
+                let left = self.eval_expr(*left);
+                if self.is_error(&left) {
+                    return left;
+                }
+
+                let index = self.eval_expr(*index);
+                if self.is_error(&index) {
+                    return index;
+                }
+
+                self.eval_index_expression(left, index)
+            }
         }
     }
 
@@ -310,6 +329,19 @@ impl Evaluator {
         }
 
         result
+    }
+
+    fn eval_index_expression(&self, left: Object, index: Object) -> Object {
+        match (left.clone(), index) {
+            (Object::Array(arr), Object::Integer(idx)) => {
+                let max = (arr.len() - 1) as i64;
+                if idx < 0 || idx > max {
+                    return Object::Null;
+                }
+                arr[idx as usize].clone()
+            }
+            _ => Object::Err(format!("index operator not supported: {}", left.obj_type())),
+        }
     }
 
     fn unwrap_return_value(&self, obj: Object) -> Object {
@@ -655,6 +687,104 @@ mod tests {
             (
                 r#"len("one", "two");"#,
                 Object::Err(String::from("wrong number of arguments. got=2, want=1")),
+            ),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let tests = vec![(
+            "[1, 2 * 3, 4 + 5];",
+            Object::Array(vec![
+                Object::Integer(1),
+                Object::Integer(6),
+                Object::Integer(9),
+            ]),
+        )];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0];", Object::Integer(1)),
+            ("[1, 2, 3][1];", Object::Integer(2)),
+            ("[1, 2, 3][2];", Object::Integer(3)),
+            ("let i=0; [1][i];", Object::Integer(1)),
+            ("[1, 2, 3][1+1];", Object::Integer(3)),
+            ("let myArray = [1, 2, 3]; myArray[2];", Object::Integer(3)),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                Object::Integer(6),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
+                Object::Integer(2),
+            ),
+            ("[1, 2, 3][3];", Object::Null),
+            ("[1, 2, 3][-1];", Object::Null),
+        ];
+
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_array_buildins() {
+        let tests = vec![
+            (
+                r#"
+            let map = fn(arr, f) {
+                let iter = fn(arr, accumulated) {
+                    if (len(arr) == 0) {
+                        accumulated
+                    } else {
+                        iter(rest(arr), push(accumulated, f(first(arr))));
+                    }
+                };
+                iter(arr, []);
+            };
+            let a = [1, 2, 3, 4];
+            let double = fn(x) { x * 2 };
+            map(a, double);"#,
+                Object::Array(vec![
+                    Object::Integer(2),
+                    Object::Integer(4),
+                    Object::Integer(6),
+                    Object::Integer(8),
+                ]),
+            ),
+            (
+                r#"
+            let reduce = fn(arr, initial, f) {
+                let iter = fn(arr, result) {
+                    if (len(arr) == 0) {
+                        result
+                    } else {
+                        iter(rest(arr), f(result, first(arr)));
+                    }
+                };
+                iter(arr, initial);
+            };
+            let sum = fn(arr) {
+                reduce(arr, 0, fn(initial, el) { initial + el });
+            };
+            sum([1, 2, 3, 4, 5]);"#,
+                Object::Integer(15),
             ),
         ];
 

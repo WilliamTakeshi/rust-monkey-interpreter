@@ -10,6 +10,7 @@ pub enum Object {
     Integer(i64),
     String(String),
     Buildin(Expression, u32, BuildinFunction),
+    Array(Vec<Object>),
     Null,
     Return(Box<Object>),
     Err(String),
@@ -31,6 +32,7 @@ impl Object {
             Self::Return(_) => String::from("RETURN"),
             Self::Err(_) => String::from("ERROR"),
             Self::Fn { .. } => String::from("FUNCTION"),
+            Self::Array { .. } => String::from("ARRAY"),
         }
     }
 }
