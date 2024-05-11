@@ -48,19 +48,19 @@ impl Lexer {
             Some('=') => {
                 if self.peek_char() == Some('=') {
                     self.read_char();
-                    Token::Eq                    
+                    Token::Eq
                 } else {
                     Token::Assign
                 }
-            },
+            }
             Some('!') => {
                 if self.peek_char() == Some('=') {
                     self.read_char();
-                    Token::Neq                    
+                    Token::Neq
                 } else {
                     Token::Bang
                 }
-            },
+            }
             Some(';') => Token::Semicolon,
             Some('(') => Token::Lparen,
             Some(')') => Token::Rparen,
@@ -73,6 +73,8 @@ impl Lexer {
             Some('/') => Token::Slash,
             Some('<') => Token::Lt,
             Some('>') => Token::Gt,
+            Some('[') => Token::Lbracket,
+            Some(']') => Token::Rbracket,
             Some('"') => Token::String(String::from(self.read_string())),
             None => Token::Eof,
             Some(c) => {
@@ -103,12 +105,12 @@ impl Lexer {
     }
 
     fn read_string(&mut self) -> &str {
-        let position = self.position+1;
-        
+        let position = self.position + 1;
+
         loop {
             self.read_char();
             if self.ch == Some('"') || self.ch == None {
-                break
+                break;
             }
         }
 
@@ -195,6 +197,7 @@ mod tests {
             10 != 9;
             "foobar"
             "foo bar"
+            [1, 2];
             "#,
         );
         let expected_response = vec![
@@ -273,6 +276,12 @@ mod tests {
             Token::Semicolon,
             Token::String(String::from("foobar")),
             Token::String(String::from("foo bar")),
+            Token::Lbracket,
+            Token::Int(1),
+            Token::Comma,
+            Token::Int(2),
+            Token::Rbracket,
+            Token::Semicolon,
             Token::Eof,
         ];
 

@@ -9,18 +9,19 @@ pub type Block = Vec<Statement>;
 
 pub type Program = Vec<Statement>;
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Expression {
     Ident(String),
     IntLiteral(u64),
     Boolean(bool),
     StringLiteral(String),
+    ArrayLiteral(Vec<Expression>),
+    IndexExpression(Box<Expression>, Box<Expression>),
     PrefixExpr(Prefix, Box<Expression>),
     InfixExpr(Infix, Box<Expression>, Box<Expression>),
     IfExpr(Box<Expression>, Block, Block),
     FnLiteral(Vec<Expression>, Block),
-    Call(Box<Expression>, Vec<Expression>)
+    Call(Box<Expression>, Vec<Expression>),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

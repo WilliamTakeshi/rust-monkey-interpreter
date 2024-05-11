@@ -116,9 +116,7 @@ impl Evaluator {
             Expression::IfExpr(condition, consequence, alternative) => {
                 self.eval_if_expression(*condition, consequence, alternative)
             }
-            Expression::Ident(ident) => {
-                self.eval_ident(ident)
-            }
+            Expression::Ident(ident) => self.eval_ident(ident),
             Expression::FnLiteral(parameters, body) => Object::Fn {
                 parameters: parameters,
                 body: body,
@@ -127,6 +125,8 @@ impl Evaluator {
             Expression::Call(function, arguments) => {
                 self.eval_call_expression(*function, arguments)
             }
+            Expression::ArrayLiteral(_) => todo!(),
+            Expression::IndexExpression(_, _) => todo!(),
         }
     }
 
@@ -137,12 +137,12 @@ impl Evaluator {
         //     None => Object::Err(format!("identifier not found: {}", ident)),
         // }
         if let Some(obj) = env.get(ident.clone()) {
-            return obj.clone()
+            return obj.clone();
         }
 
         let hm = get_builtin_functions();
         if let Some(obj) = hm.get(&ident) {
-            return obj.clone()
+            return obj.clone();
         }
         Object::Err(format!("identifier not found: {}", ident))
     }
@@ -266,7 +266,11 @@ impl Evaluator {
                 if args.len() == param_num as usize {
                     function(args)
                 } else {
-                    Object::Err(format!("wrong number of arguments. got={}, want={}", args.len(), param_num))
+                    Object::Err(format!(
+                        "wrong number of arguments. got={}, want={}",
+                        args.len(),
+                        param_num
+                    ))
                 }
             }
             _ => Object::Err(format!("not a function: {}", function.obj_type())),
@@ -644,8 +648,14 @@ mod tests {
             (r#"len("");"#, Object::Integer(0)),
             (r#"len("four");"#, Object::Integer(4)),
             (r#"len("hello world");"#, Object::Integer(11)),
-            (r#"len(1);"#, Object::Err(String::from("argument to 'len' not supported, got INTEGER"))),
-            (r#"len("one", "two");"#, Object::Err(String::from("wrong number of arguments. got=2, want=1"))),
+            (
+                r#"len(1);"#,
+                Object::Err(String::from("argument to 'len' not supported, got INTEGER")),
+            ),
+            (
+                r#"len("one", "two");"#,
+                Object::Err(String::from("wrong number of arguments. got=2, want=1")),
+            ),
         ];
 
         for i in 0..tests.len() {

@@ -2,11 +2,10 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::object::object::Object;
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Environment {
     store: HashMap<String, Object>,
-    outer: Option<Rc<RefCell<Environment>>>
+    outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
@@ -28,18 +27,14 @@ impl Environment {
         match self.store.get(&key) {
             Some(val) => Some(val.clone()),
             None => match &self.outer {
-                Some(outer_env) => {
-                    outer_env.borrow().get(key).clone()
-                } 
-                None => None
-            }
+                Some(outer_env) => outer_env.borrow().get(key).clone(),
+                None => None,
+            },
         }
-
-    } 
+    }
 
     pub fn set(&mut self, key: String, val: Object) -> Object {
         self.store.insert(key, val.clone());
         val
     }
-
 }

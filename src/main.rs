@@ -1,10 +1,10 @@
-mod token;
-mod lexer;
-mod repl;
 mod ast;
-mod parser;
-mod object;
 mod eval;
+mod lexer;
+mod object;
+mod parser;
+mod repl;
+mod token;
 
 fn main() {
     let _ = repl::start();

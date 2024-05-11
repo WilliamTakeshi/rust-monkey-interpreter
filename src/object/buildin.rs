@@ -5,9 +5,7 @@ use std::collections::HashMap;
 pub type BuildinFunction = fn(Vec<Object>) -> Object;
 
 pub fn get_builtin_functions() -> HashMap<String, Object> {
-    HashMap::from(
-        [create_buildin("len", 1, buildin_len)]
-    )
+    HashMap::from([create_buildin("len", 1, buildin_len)])
 }
 
 fn create_buildin(name: &str, param_num: u32, function: BuildinFunction) -> (String, Object) {

@@ -34,6 +34,10 @@ pub enum Token {
     // String
     String(String),
 
+    // Array
+    Lbracket,
+    Rbracket,
+
     // Operators
     Assign,
     Plus,

@@ -1,13 +1,12 @@
-use std::io;
-use anyhow::Result;
+use crate::eval::Evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-use crate::eval::Evaluator;
+use anyhow::Result;
+use std::io;
 
 const PROMPT: &'static str = ">> ";
 
 pub fn start() -> Result<()> {
-
     let mut evaluator = Evaluator::new();
     loop {
         // Print prompt and flush to write it to console
