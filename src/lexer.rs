@@ -75,6 +75,7 @@ impl Lexer {
             Some('>') => Token::Gt,
             Some('[') => Token::Lbracket,
             Some(']') => Token::Rbracket,
+            Some(':') => Token::Colon,
             Some('"') => Token::String(String::from(self.read_string())),
             None => Token::Eof,
             Some(c) => {
@@ -198,6 +199,7 @@ mod tests {
             "foobar"
             "foo bar"
             [1, 2];
+            {"foo": "bar"}
             "#,
         );
         let expected_response = vec![
@@ -282,6 +284,11 @@ mod tests {
             Token::Int(2),
             Token::Rbracket,
             Token::Semicolon,
+            Token::Lbrace,
+            Token::String(String::from("foo")),
+            Token::Colon,
+            Token::String(String::from("bar")),
+            Token::Rbrace,
             Token::Eof,
         ];
 

@@ -16,6 +16,7 @@ pub enum Expression {
     Boolean(bool),
     StringLiteral(String),
     ArrayLiteral(Vec<Expression>),
+    HashLiteral(Vec<(Expression, Expression)>),
     IndexExpression(Box<Expression>, Box<Expression>),
     PrefixExpr(Prefix, Box<Expression>),
     InfixExpr(Infix, Box<Expression>, Box<Expression>),

@@ -146,6 +146,7 @@ impl Evaluator {
 
                 self.eval_index_expression(left, index)
             }
+            Expression::HashLiteral(_) => todo!(),
         }
     }
 

@@ -139,6 +139,7 @@ impl Parser {
             Some(Token::If) => self.parse_if_expression()?,
             Some(Token::Function) => self.parse_fn_literal_expression()?,
             Some(Token::Lbracket) => self.parse_array_literal()?,
+            Some(Token::Lbrace) => self.parse_hash_literal()?,
             _ => todo!(),
         };
 
@@ -409,6 +410,51 @@ impl Parser {
         let elements = self.parse_expression_list(Token::Rbracket)?;
 
         Ok(Expression::ArrayLiteral(elements))
+    }
+
+    fn parse_hash_literal(&mut self) -> Result<Expression> {
+        let mut res = vec![];
+
+        while self.peek_token != Some(Token::Rbrace) {
+            self.next_token();
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            if self.peek_token != Some(Token::Colon) {
+                return Err(anyhow!(
+                    "Expected token: {:?}, Found: {:?}",
+                    Token::Colon,
+                    self.peek_token
+                ));
+            }
+            self.next_token();
+            self.next_token();
+
+            let value = self.parse_expression(Precedence::Lowest)?;
+
+            res.push((key, value));
+
+            if self.peek_token != Some(Token::Rbrace) && self.peek_token != Some(Token::Comma) {
+                return Err(anyhow!(
+                    "Expected token: {:?}, Found: {:?}",
+                    Token::Comma,
+                    self.peek_token
+                ));
+            }
+            if self.peek_token == Some(Token::Comma) {
+                self.next_token();
+            }
+        }
+
+        if self.peek_token != Some(Token::Rbrace) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Colon,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        Ok(Expression::HashLiteral(res))
     }
 
     fn parse_expression_list(&mut self, end: Token) -> Result<Vec<Expression>> {
@@ -1220,6 +1266,143 @@ mod tests {
                 Box::from(Expression::IntLiteral(5)),
             )),
         )];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_hash_literal() {
+        let input = String::from(
+            r#"
+            {"one": 1, "two": 2, "three": 3};
+            "#,
+        );
+
+        let expected_expressions = [Expression::HashLiteral(vec![
+            (
+                Expression::StringLiteral(String::from("one")),
+                Expression::IntLiteral(1),
+            ),
+            (
+                Expression::StringLiteral(String::from("two")),
+                Expression::IntLiteral(2),
+            ),
+            (
+                Expression::StringLiteral(String::from("three")),
+                Expression::IntLiteral(3),
+            ),
+        ])];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_empty_hash_literal() {
+        let input = String::from(
+            r#"
+            {};
+            "#,
+        );
+
+        let expected_expressions = [Expression::HashLiteral(vec![])];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_hash_literal_with_expression() {
+        let input = String::from(
+            r#"
+            {"one": 0 + 1, "two": 10 - 8, "three": 15 / 5};
+            "#,
+        );
+
+        let expected_expressions = [Expression::HashLiteral(vec![
+            (
+                Expression::StringLiteral(String::from("one")),
+                Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(0)),
+                    Box::from(Expression::IntLiteral(1)),
+                ),
+            ),
+            (
+                Expression::StringLiteral(String::from("two")),
+                Expression::InfixExpr(
+                    Infix::Minus,
+                    Box::from(Expression::IntLiteral(10)),
+                    Box::from(Expression::IntLiteral(8)),
+                ),
+            ),
+            (
+                Expression::StringLiteral(String::from("three")),
+                Expression::InfixExpr(
+                    Infix::Slash,
+                    Box::from(Expression::IntLiteral(15)),
+                    Box::from(Expression::IntLiteral(5)),
+                ),
+            ),
+        ])];
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
