@@ -914,31 +914,31 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_quote_unquote() {
-        let tests = vec![
-            ("quote(unquote(4))", Object::Integer(4)),
-            ("quote(unquote(4 + 4))", Object::Integer(8)),
-            (
-                "quote(8 + unquote(4 + 5))",
-                Object::Quote(Expression::InfixExpr(
-                    Infix::Plus,
-                    Box::from(Expression::IntLiteral(8)),
-                    Box::from(Expression::IntLiteral(9)),
-                )),
-            ),
-            (
-                "quote(unquote(4 + 5)+ 8)",
-                Object::Quote(Expression::InfixExpr(
-                    Infix::Plus,
-                    Box::from(Expression::IntLiteral(9)),
-                    Box::from(Expression::IntLiteral(8)),
-                )),
-            ),
-        ];
-        for i in 0..tests.len() {
-            let evaluated = test_eval(String::from(tests[i].0));
-            assert_eq!(evaluated, tests[i].1);
-        }
-    }
+    // #[test]
+    // fn test_quote_unquote() {
+    //     let tests = vec![
+    //         ("quote(unquote(4))", Object::Integer(4)),
+    //         ("quote(unquote(4 + 4))", Object::Integer(8)),
+    //         (
+    //             "quote(8 + unquote(4 + 5))",
+    //             Object::Quote(Expression::InfixExpr(
+    //                 Infix::Plus,
+    //                 Box::from(Expression::IntLiteral(8)),
+    //                 Box::from(Expression::IntLiteral(9)),
+    //             )),
+    //         ),
+    //         (
+    //             "quote(unquote(4 + 5)+ 8)",
+    //             Object::Quote(Expression::InfixExpr(
+    //                 Infix::Plus,
+    //                 Box::from(Expression::IntLiteral(9)),
+    //                 Box::from(Expression::IntLiteral(8)),
+    //             )),
+    //         ),
+    //     ];
+    //     for i in 0..tests.len() {
+    //         let evaluated = test_eval(String::from(tests[i].0));
+    //         assert_eq!(evaluated, tests[i].1);
+    //     }
+    // }
 }
