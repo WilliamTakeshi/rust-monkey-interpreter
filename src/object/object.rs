@@ -1,4 +1,4 @@
-use crate::ast::{Block, Expression};
+use crate::ast::ast::{Block, Expression};
 use core::hash::{Hash, Hasher};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -12,6 +12,7 @@ pub enum Object {
     Buildin(Expression, u32, BuildinFunction),
     Array(Vec<Object>),
     Hash(HashMap<Object, Object>),
+    Quote(Expression),
     Null,
     Return(Box<Object>),
     Err(String),
@@ -46,6 +47,7 @@ impl Object {
             Self::Fn { .. } => String::from("FUNCTION"),
             Self::Array { .. } => String::from("ARRAY"),
             Self::Hash { .. } => String::from("HASH"),
+            Self::Quote { .. } => String::from("QUOTE"),
         }
     }
 }

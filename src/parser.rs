@@ -1,4 +1,4 @@
-use crate::ast::{Block, Expression, Infix, Prefix, Program, Statement};
+use crate::ast::ast::{Block, Expression, Infix, Prefix, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 use anyhow::{anyhow, Result};
@@ -502,7 +502,7 @@ fn get_precedence(tok: &Token) -> Precedence {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::Statement;
+    use crate::ast::ast::Statement;
 
     use super::*;
 

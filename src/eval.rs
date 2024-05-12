@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ast::{Block, Expression, Infix, Prefix, Program, Statement};
+use crate::ast::ast::{Block, Expression, Infix, Prefix, Program, Statement};
 use crate::object::buildin::get_builtin_functions;
 use crate::object::environment::Environment;
 use crate::object::object::Object;
@@ -270,6 +270,10 @@ impl Evaluator {
     }
 
     fn eval_call_expression(&mut self, function: Expression, args: Vec<Expression>) -> Object {
+        if Expression::Ident(String::from("quote")) == function {
+            return Object::Quote(args[0].clone());
+        }
+
         let function_obj = self.eval_expr(function);
         if self.is_error(&function_obj) {
             return function_obj;
@@ -873,6 +877,65 @@ mod tests {
             (r#"{false: 5}[false]"#, Object::Integer(5)),
         ];
 
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_quote() {
+        let tests = vec![
+            ("quote(5)", Object::Quote(Expression::IntLiteral(5))),
+            (
+                "quote(5 + 8)",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(5)),
+                    Box::from(Expression::IntLiteral(8)),
+                )),
+            ),
+            (
+                "quote(foobar)",
+                Object::Quote(Expression::Ident(String::from("foobar"))),
+            ),
+            (
+                "quote(foobar + barfoo)",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::Ident(String::from("foobar"))),
+                    Box::from(Expression::Ident(String::from("barfoo"))),
+                )),
+            ),
+        ];
+        for i in 0..tests.len() {
+            let evaluated = test_eval(String::from(tests[i].0));
+            assert_eq!(evaluated, tests[i].1);
+        }
+    }
+
+    #[test]
+    fn test_quote_unquote() {
+        let tests = vec![
+            ("quote(unquote(4))", Object::Integer(4)),
+            ("quote(unquote(4 + 4))", Object::Integer(8)),
+            (
+                "quote(8 + unquote(4 + 5))",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(8)),
+                    Box::from(Expression::IntLiteral(9)),
+                )),
+            ),
+            (
+                "quote(unquote(4 + 5)+ 8)",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(9)),
+                    Box::from(Expression::IntLiteral(8)),
+                )),
+            ),
+        ];
         for i in 0..tests.len() {
             let evaluated = test_eval(String::from(tests[i].0));
             assert_eq!(evaluated, tests[i].1);

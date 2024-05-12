@@ -1,5 +1,5 @@
 use super::object::Object;
-use crate::ast::Expression;
+use crate::ast::ast::Expression;
 use std::collections::HashMap;
 
 pub type BuildinFunction = fn(Vec<Object>) -> Object;
