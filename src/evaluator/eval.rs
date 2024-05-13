@@ -6,6 +6,8 @@ use crate::ast::ast::{Block, Expression, Infix, Prefix, Program, Statement};
 use crate::object::buildin::get_builtin_functions;
 use crate::object::environment::Environment;
 use crate::object::object::Object;
+
+use crate::evaluator::quote_unquote::quote;
 // use crate::token::Token;
 
 pub struct Evaluator {
@@ -91,7 +93,7 @@ impl Evaluator {
         }
     }
 
-    fn eval_expr(&mut self, expr: Expression) -> Object {
+    pub fn eval_expr(&mut self, expr: Expression) -> Object {
         match expr {
             Expression::IntLiteral(num) => Object::Integer(num as i64),
             Expression::Boolean(bool) => Object::Boolean(bool),
@@ -172,10 +174,7 @@ impl Evaluator {
 
     fn eval_ident(&mut self, ident: String) -> Object {
         let env = self.environment.borrow();
-        // match env.get(ident.clone()) {
-        //     Some(obj) => obj.clone(),
-        //     None => Object::Err(format!("identifier not found: {}", ident)),
-        // }
+
         if let Some(obj) = env.get(ident.clone()) {
             return obj.clone();
         }
@@ -271,7 +270,9 @@ impl Evaluator {
 
     fn eval_call_expression(&mut self, function: Expression, args: Vec<Expression>) -> Object {
         if Expression::Ident(String::from("quote")) == function {
-            return Object::Quote(args[0].clone());
+            let env = self.environment.borrow();
+
+            return quote(args[0].clone(), env);
         }
 
         let function_obj = self.eval_expr(function);
@@ -917,8 +918,14 @@ mod tests {
     #[test]
     fn test_quote_unquote() {
         let tests = vec![
-            ("quote(unquote(4))", Object::Integer(4)),
-            ("quote(unquote(4 + 4))", Object::Integer(8)),
+            (
+                "quote(unquote(4))",
+                Object::Quote(Expression::IntLiteral(4)),
+            ),
+            (
+                "quote(unquote(4 + 4))",
+                Object::Quote(Expression::IntLiteral(8)),
+            ),
             (
                 "quote(8 + unquote(4 + 5))",
                 Object::Quote(Expression::InfixExpr(
@@ -933,6 +940,45 @@ mod tests {
                     Infix::Plus,
                     Box::from(Expression::IntLiteral(9)),
                     Box::from(Expression::IntLiteral(8)),
+                )),
+            ),
+            (
+                "let foobar = 8;
+                quote(foobar);",
+                Object::Quote(Expression::Ident(String::from("foobar"))),
+            ),
+            (
+                "let foobar = 8;
+                quote(unquote(foobar));",
+                Object::Quote(Expression::IntLiteral(8)),
+            ),
+            (
+                "quote(unquote(true));",
+                Object::Quote(Expression::Boolean(true)),
+            ),
+            (
+                "quote(unquote(true == false));",
+                Object::Quote(Expression::Boolean(false)),
+            ),
+            (
+                "quote(unquote(quote(4 + 4)));",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(4)),
+                    Box::from(Expression::IntLiteral(4)),
+                )),
+            ),
+            (
+                "let quotedInfixExpression = quote(4 + 4);
+                quote(unquote(4 + 4) + unquote(quotedInfixExpression));",
+                Object::Quote(Expression::InfixExpr(
+                    Infix::Plus,
+                    Box::from(Expression::IntLiteral(8)),
+                    Box::from(Expression::InfixExpr(
+                        Infix::Plus,
+                        Box::from(Expression::IntLiteral(4)),
+                        Box::from(Expression::IntLiteral(4)),
+                    )),
                 )),
             ),
         ];

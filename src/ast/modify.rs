@@ -2,7 +2,7 @@ use crate::ast::ast::Expression;
 
 use super::ast::{Program, Statement};
 
-type ModifyFn<'a> = &'a dyn Fn(Expression) -> Expression;
+pub type ModifyFn<'a> = &'a dyn Fn(Expression) -> Expression;
 
 pub fn modify_program(program: Program, func: ModifyFn) -> Program {
     modify_statements(program, func)
