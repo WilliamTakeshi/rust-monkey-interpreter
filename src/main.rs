@@ -1,5 +1,5 @@
 mod ast;
-mod eval;
+mod evaluator;
 mod lexer;
 mod object;
 mod parser;
