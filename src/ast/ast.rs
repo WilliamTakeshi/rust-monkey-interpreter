@@ -23,6 +23,7 @@ pub enum Expression {
     IfExpr(Box<Expression>, Block, Block),
     FnLiteral(Vec<Expression>, Block),
     Call(Box<Expression>, Vec<Expression>),
+    MacroLiteral(Vec<Expression>, Block),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

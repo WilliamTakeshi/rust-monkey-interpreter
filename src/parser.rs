@@ -140,6 +140,7 @@ impl Parser {
             Some(Token::Function) => self.parse_fn_literal_expression()?,
             Some(Token::Lbracket) => self.parse_array_literal()?,
             Some(Token::Lbrace) => self.parse_hash_literal()?,
+            Some(Token::Macro) => self.parse_macro_literal()?,
             _ => todo!(),
         };
 
@@ -268,6 +269,31 @@ impl Parser {
 
         let body = self.parse_block_statement()?;
         Ok(Expression::FnLiteral(parameters, body))
+    }
+
+    fn parse_macro_literal(&mut self) -> Result<Expression> {
+        if self.peek_token != Some(Token::Lparen) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Lparen,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        let parameters = self.parse_fn_parameters()?;
+
+        if self.peek_token != Some(Token::Lbrace) {
+            return Err(anyhow!(
+                "Expected token: {:?}, Found: {:?}",
+                Token::Lbrace,
+                self.peek_token
+            ));
+        }
+        self.next_token();
+
+        let body = self.parse_block_statement()?;
+        Ok(Expression::MacroLiteral(parameters, body))
     }
 
     fn parse_fn_parameters(&mut self) -> Result<Vec<Expression>> {
@@ -1403,6 +1429,48 @@ mod tests {
                 ),
             ),
         ])];
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+
+        if program.len() != expected_expressions.len() {
+            panic!(
+                "program statemens doesn't contain {} elements, got {}",
+                expected_expressions.len(),
+                program.len()
+            );
+        }
+
+        for (idx, expected_expr) in expected_expressions.iter().enumerate() {
+            match &program[idx] {
+                Statement::ExpressionStmt(expr) => {
+                    assert_eq!(expr, expected_expr)
+                }
+                _ => assert!(false),
+            }
+        }
+    }
+
+    fn test_macro_literal_parsing() {
+        let input = String::from(
+            r#"
+            macro(x, y) { x + y; };
+            "#,
+        );
+
+        let expected_expressions = [Expression::MacroLiteral(
+            vec![
+                Expression::Ident(String::from("x")),
+                Expression::Ident(String::from("y")),
+            ],
+            vec![Statement::ExpressionStmt(Expression::InfixExpr(
+                Infix::Plus,
+                Box::from(Expression::Ident(String::from("x"))),
+                Box::from(Expression::Ident(String::from("y"))),
+            ))],
+        )];
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);

@@ -200,6 +200,7 @@ mod tests {
             "foo bar"
             [1, 2];
             {"foo": "bar"}
+            macro(x, y) { x + y; };
             "#,
         );
         let expected_response = vec![
@@ -289,6 +290,19 @@ mod tests {
             Token::Colon,
             Token::String(String::from("bar")),
             Token::Rbrace,
+            Token::Macro,
+            Token::Lparen,
+            Token::Ident(String::from("x")),
+            Token::Comma,
+            Token::Ident(String::from("y")),
+            Token::Rparen,
+            Token::Lbrace,
+            Token::Ident(String::from("x")),
+            Token::Plus,
+            Token::Ident(String::from("y")),
+            Token::Semicolon,
+            Token::Rbrace,
+            Token::Semicolon,
             Token::Eof,
         ];
 

@@ -50,6 +50,6 @@ fn convert_object_to_ast_node(obj: Object) -> Expression {
         Object::Integer(n) => Expression::IntLiteral(n as u64),
         Object::Boolean(b) => Expression::Boolean(b),
         Object::Quote(expr) => expr,
-        _ => todo!()
+        _ => todo!(),
     }
 }

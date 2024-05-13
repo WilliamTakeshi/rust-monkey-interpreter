@@ -150,6 +150,7 @@ impl Evaluator {
                 self.eval_index_expression(left, index)
             }
             Expression::HashLiteral(nodes) => self.eval_hash_literal(nodes),
+            Expression::MacroLiteral(_, _) => todo!(),
         }
     }
 
