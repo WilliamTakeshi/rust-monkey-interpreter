@@ -21,6 +21,11 @@ pub enum Object {
         body: Block,
         env: Rc<RefCell<Environment>>,
     },
+    Macro {
+        parameters: Vec<Expression>,
+        body: Block,
+        env: Rc<RefCell<Environment>>,
+    },
 }
 
 impl Hash for Object {
@@ -48,6 +53,7 @@ impl Object {
             Self::Array { .. } => String::from("ARRAY"),
             Self::Hash { .. } => String::from("HASH"),
             Self::Quote { .. } => String::from("QUOTE"),
+            Self::Macro { .. } => String::from("MACRO"),
         }
     }
 }
