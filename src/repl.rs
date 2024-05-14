@@ -5,7 +5,7 @@ use crate::parser::Parser;
 use anyhow::Result;
 use std::io;
 
-const PROMPT: &'static str = ">> ";
+const PROMPT: &str = ">> ";
 
 pub fn start() -> Result<()> {
     let mut evaluator = Evaluator::new();
@@ -16,13 +16,12 @@ pub fn start() -> Result<()> {
 
         // Scan Input line
         let mut buffer = String::new();
-        match io::stdin().read_line(&mut buffer) {
-            Err(error) => {
-                println!("error: {}", error);
-                return Ok(());
-            }
-            Ok(_) => (),
+
+        if let Err(error) = io::stdin().read_line(&mut buffer) {
+            println!("error: {}", error);
+            return Ok(());
         }
+
         // Create Lexer
         let lexer = Lexer::new(buffer);
         let mut parser = Parser::new(lexer);

@@ -110,7 +110,7 @@ impl Lexer {
 
         loop {
             self.read_char();
-            if self.ch == Some('"') || self.ch == None {
+            if self.ch == Some('"') || self.ch.is_none() {
                 break;
             }
         }

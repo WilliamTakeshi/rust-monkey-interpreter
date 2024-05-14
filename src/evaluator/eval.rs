@@ -33,7 +33,7 @@ impl Evaluator {
             1 => {
                 let obj = self.eval_statement(program[0].clone());
                 match obj {
-                    Object::Return(obj) => return *obj,
+                    Object::Return(obj) => *obj,
                     _ => obj,
                 }
             }
@@ -121,8 +121,8 @@ impl Evaluator {
             }
             Expression::Ident(ident) => self.eval_ident(ident),
             Expression::FnLiteral(parameters, body) => Object::Fn {
-                parameters: parameters,
-                body: body,
+                parameters,
+                body,
                 env: self.environment.clone(),
             },
             Expression::Call(function, arguments) => {
@@ -136,7 +136,7 @@ impl Evaluator {
 
                 Object::Array(elements)
             }
-            Expression::IndexExpression(left, index) => {
+            Expression::IndexExpr(left, index) => {
                 let left = self.eval_expr(*left);
                 if self.is_error(&left) {
                     return left;
@@ -396,10 +396,7 @@ impl Evaluator {
     }
 
     fn is_error(&self, obj: &Object) -> bool {
-        match obj {
-            Object::Err(_) => true,
-            _ => false,
-        }
+        matches!(obj, Object::Err(_))
     }
 }
 

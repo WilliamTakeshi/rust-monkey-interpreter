@@ -10,7 +10,7 @@ use super::eval::Evaluator;
 pub fn quote(expr: Expression, env: Ref<Environment>) -> Object {
     let expr = eval_unquote_calls(expr, env);
 
-    return Object::Quote(expr);
+    Object::Quote(expr)
 }
 
 fn eval_unquote_calls(quoted: Expression, env: Ref<Environment>) -> Expression {

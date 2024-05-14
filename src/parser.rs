@@ -49,7 +49,6 @@ impl Parser {
                 Ok(statement) => program.push(statement),
                 Err(error) => {
                     dbg!(&error);
-                    ()
                 }
             }
 
@@ -375,10 +374,7 @@ impl Parser {
         }
         self.next_token();
 
-        Ok(Expression::IndexExpression(
-            Box::from(left),
-            Box::from(index),
-        ))
+        Ok(Expression::IndexExpr(Box::from(left), Box::from(index)))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
@@ -1284,7 +1280,7 @@ mod tests {
             "#,
         );
 
-        let expected_expressions = [Expression::IndexExpression(
+        let expected_expressions = [Expression::IndexExpr(
             Box::from(Expression::Ident(String::from("myArray"))),
             Box::from(Expression::InfixExpr(
                 Infix::Plus,

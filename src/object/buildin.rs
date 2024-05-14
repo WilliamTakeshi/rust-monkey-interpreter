@@ -38,7 +38,7 @@ fn builtin_first(input: Vec<Object>) -> Object {
     let input_object = &input[0];
     match input_object {
         Object::Array(elem) => {
-            if elem.len() > 0 {
+            if !elem.is_empty() {
                 elem[0].clone()
             } else {
                 Object::Null
@@ -55,7 +55,7 @@ fn builtin_last(input: Vec<Object>) -> Object {
     let input_object = &input[0];
     match input_object {
         Object::Array(elem) => {
-            if elem.len() > 0 {
+            if !elem.is_empty() {
                 elem[elem.len() - 1].clone()
             } else {
                 Object::Null
@@ -87,7 +87,7 @@ fn builtin_rest(input: Vec<Object>) -> Object {
     let input_object = &input[0];
     match input_object {
         Object::Array(elem) => {
-            if elem.len() > 0 {
+            if !elem.is_empty() {
                 let mut new_elem = elem.clone();
                 new_elem.remove(0);
                 Object::Array(new_elem)

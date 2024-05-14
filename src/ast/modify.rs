@@ -48,7 +48,7 @@ pub fn modify_expr(expr: Expression, func: ModifyFn) -> Expression {
         Expression::PrefixExpr(op, right) => {
             Expression::PrefixExpr(op, Box::from(modify_expr(*right, func)))
         }
-        Expression::IndexExpression(left, index) => Expression::IndexExpression(
+        Expression::IndexExpr(left, index) => Expression::IndexExpr(
             Box::from(modify_expr(*left, func)),
             Box::from(modify_expr(*index, func)),
         ),
@@ -115,8 +115,8 @@ mod tests {
                 Expression::PrefixExpr(Prefix::Minus, Box::from(two())),
             ),
             (
-                Expression::IndexExpression(Box::from(one()), Box::from(one())),
-                Expression::IndexExpression(Box::from(two()), Box::from(two())),
+                Expression::IndexExpr(Box::from(one()), Box::from(one())),
+                Expression::IndexExpr(Box::from(two()), Box::from(two())),
             ),
             (
                 Expression::IfExpr(
@@ -131,8 +131,8 @@ mod tests {
                 ),
             ),
             (
-                Expression::IndexExpression(Box::from(one()), Box::from(one())),
-                Expression::IndexExpression(Box::from(two()), Box::from(two())),
+                Expression::IndexExpr(Box::from(one()), Box::from(one())),
+                Expression::IndexExpr(Box::from(two()), Box::from(two())),
             ),
             (
                 Expression::FnLiteral(

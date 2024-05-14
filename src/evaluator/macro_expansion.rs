@@ -28,17 +28,14 @@ pub fn define_macros(mut program: Program, mut env: Environment) -> (Program, En
 }
 
 fn is_macro_definition(stmt: &Statement) -> bool {
-    match stmt {
-        Statement::Let(_, Expression::MacroLiteral(_, _)) => true,
-        _ => false,
-    }
+    matches!(stmt, Statement::Let(_, Expression::MacroLiteral(_, _)))
 }
 
 fn add_macro(stmt: Statement, mut env: Environment) -> Environment {
     if let Statement::Let(name, Expression::MacroLiteral(parameters, body)) = stmt {
         let macro_obj = Object::Macro {
-            parameters: parameters,
-            body: body,
+            parameters,
+            body,
             env: Rc::new(RefCell::new(env.clone())),
         };
         env.set(name, macro_obj);
@@ -66,7 +63,7 @@ pub fn expand_macros(program: Program, env: Environment) -> Vec<Statement> {
 
                     evaluator.eval_program(body)
                 }
-                _ => Object::Err(format!("Macro not found")),
+                _ => Object::Err("Macro not found".to_string()),
             };
 
             let evaluated = match evaluated_quote {
