@@ -11,7 +11,7 @@ use crate::evaluator::quote_unquote::quote;
 // use crate::token::Token;
 
 pub struct Evaluator {
-    environment: Rc<RefCell<Environment>>,
+    pub environment: Rc<RefCell<Environment>>,
 }
 
 impl Evaluator {

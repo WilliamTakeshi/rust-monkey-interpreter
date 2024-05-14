@@ -1,4 +1,5 @@
 use crate::evaluator::eval::Evaluator;
+use crate::evaluator::macro_expansion::{define_macros, expand_macros};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use anyhow::Result;
@@ -27,8 +28,11 @@ pub fn start() -> Result<()> {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-
-        let outcome = evaluator.eval_program(program);
+        let env = evaluator.environment.borrow().clone();
+        let (program, env) = define_macros(program, env);
+        let expanded = expand_macros(program, env.clone());
+        evaluator = Evaluator::new_with_env(env);
+        let outcome = evaluator.eval_program(expanded);
         println!("{:?}", outcome);
     }
 }

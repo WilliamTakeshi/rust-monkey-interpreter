@@ -8,14 +8,12 @@ use crate::{
 use super::eval::Evaluator;
 
 pub fn quote(expr: Expression, env: Ref<Environment>) -> Object {
-    dbg!("quote");
     let expr = eval_unquote_calls(expr, env);
 
     return Object::Quote(expr);
 }
 
 fn eval_unquote_calls(quoted: Expression, env: Ref<Environment>) -> Expression {
-    dbg!("eval_unquote_calls");
     let modify_func = |expr| {
         if !is_unquote_call(&expr) {
             return expr;
