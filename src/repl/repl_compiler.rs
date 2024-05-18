@@ -1,7 +1,9 @@
+use crate::compiler::compiler::Compiler;
 use crate::evaluator::eval::Evaluator;
 use crate::evaluator::macro_expansion::{define_macros, expand_macros};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
+use crate::vm::vm::Vm;
 use anyhow::Result;
 use std::io;
 
@@ -27,11 +29,14 @@ pub fn start() -> Result<()> {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        let env = evaluator.environment.borrow().clone();
-        let (program, env) = define_macros(program, env);
-        let expanded = expand_macros(program, env.clone());
-        evaluator = Evaluator::new_with_env(env);
-        let outcome = evaluator.eval_program(expanded);
-        println!("{:?}", outcome);
+
+        let mut compiler = Compiler::new();
+        compiler.compile_program(program);
+
+        let mut vm = Vm::new(compiler.bytecode());
+        vm.run()?;
+
+        let stack_top = vm.stack_top();
+        println!("{:?}", stack_top);
     }
 }

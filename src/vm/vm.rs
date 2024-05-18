@@ -7,7 +7,7 @@ const STACK_SIZE: usize = 50;
 // const STACK_SIZE: usize = 2048;
 
 #[derive(Debug)]
-struct Vm {
+pub struct Vm {
     constants: Vec<Object>,
     instructions: Instructions,
 
@@ -16,7 +16,7 @@ struct Vm {
 }
 
 impl Vm {
-    fn new(bytecode: Bytecode) -> Self {
+    pub fn new(bytecode: Bytecode) -> Self {
         Self {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
@@ -26,14 +26,14 @@ impl Vm {
         }
     }
 
-    fn stack_top(&self) -> &Object {
+    pub fn stack_top(&self) -> &Object {
         if self.sp == 0 {
             return &Object::Null;
         }
         &self.stack[self.sp - 1]
     }
 
-    fn run(&mut self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         let mut ip: usize = 0;
         while ip < self.instructions.len() {
             let op = self.instructions[ip];

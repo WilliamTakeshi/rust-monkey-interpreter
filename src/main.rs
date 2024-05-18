@@ -10,6 +10,6 @@ mod compiler;
 mod vm;
 
 fn main() {
-    let _ = repl::repl_interpreter::start();
-    // let _ = repl::repl_compiler::start();
+    // let _ = repl::repl_interpreter::start();
+    let _ = repl::repl_compiler::start();
 }
