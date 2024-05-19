@@ -74,6 +74,19 @@ impl Vm {
                 Ok(OpCode::OpMinus) => {
                     self.execute_minus_operator()?;
                 }
+                Ok(OpCode::OpJump) => {
+                    let pos = u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
+                    ip = (pos - 1) as usize;
+                }
+                Ok(OpCode::OpJumpNotTruthy) => {
+                    let pos = u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
+                    ip += 2;
+
+                    let condition = self.pop();
+                    if !Self::is_truthy(condition) {
+                        ip = (pos - 1) as usize;
+                    }
+                }
                 Ok(OpCode::OpTrue) => self.push(TRUE)?,
                 Ok(OpCode::OpFalse) => self.push(FALSE)?,
                 Ok(OpCode::OpPop) => {
@@ -84,6 +97,14 @@ impl Vm {
             ip += 1;
         }
         Ok(())
+    }
+
+    fn is_truthy(obj: Object) -> bool {
+        match obj {
+            Object::Null => false,
+            Object::Boolean(b) => b,
+            _ => true,
+        }
     }
 
     fn execute_minus_operator(&mut self) -> Result<()> {
@@ -410,6 +431,42 @@ mod tests {
             VmTestCase {
                 input: "!!5".to_string(),
                 expected: vec![Object::Boolean(true)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_conditionals() {
+        let tests = vec![
+            VmTestCase {
+                input: "if (true) { 10 }".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "if (true) { 10 } else { 20 }".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "if (false) { 10 } else { 20 }".to_string(),
+                expected: vec![Object::Integer(20)],
+            },
+            VmTestCase {
+                input: "if (1) { 10 }".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "if (1 < 2) { 10 }".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "if (1 < 2) { 10 } else { 20 }".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "if (1 > 2) { 10 } else { 20 }".to_string(),
+                expected: vec![Object::Integer(20)],
             },
         ];
 
