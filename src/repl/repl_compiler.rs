@@ -10,7 +10,6 @@ use std::io;
 const PROMPT: &str = ">> ";
 
 pub fn start() -> Result<()> {
-    let mut evaluator = Evaluator::new();
     loop {
         // Print prompt and flush to write it to console
         print!("{}", PROMPT);
@@ -31,12 +30,12 @@ pub fn start() -> Result<()> {
         let program = parser.parse_program();
 
         let mut compiler = Compiler::new();
-        compiler.compile_program(program);
+        let _ = compiler.compile_program(program);
 
         let mut vm = Vm::new(compiler.bytecode());
         vm.run()?;
 
-        let stack_top = vm.stack_top();
+        let stack_top = vm.last_popped_stack_elem();
         println!("{:?}", stack_top);
     }
 }

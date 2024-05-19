@@ -2,11 +2,35 @@ use std::convert::TryFrom;
 
 pub type Instructions = Vec<u8>;
 
+#[derive(Debug, PartialEq)]
 pub enum OpCode {
     OpConstant = 0,
     OpAdd = 1,
+    OpPop,
+    OpSub,
+    OpMult,
+    OpDiv,
+    OpTrue,
+    OpFalse,
 }
 
+impl TryFrom<u8> for OpCode {
+    type Error = ();
+
+    fn try_from(v: u8) -> Result<Self, Self::Error> {
+        match v {
+            x if x == OpCode::OpConstant as u8 => Ok(OpCode::OpConstant),
+            x if x == OpCode::OpAdd as u8 => Ok(OpCode::OpAdd),
+            x if x == OpCode::OpPop as u8 => Ok(OpCode::OpPop),
+            x if x == OpCode::OpSub as u8 => Ok(OpCode::OpSub),
+            x if x == OpCode::OpMult as u8 => Ok(OpCode::OpMult),
+            x if x == OpCode::OpDiv as u8 => Ok(OpCode::OpDiv),
+            x if x == OpCode::OpTrue as u8 => Ok(OpCode::OpTrue),
+            x if x == OpCode::OpFalse as u8 => Ok(OpCode::OpFalse),
+            _ => Err(()),
+        }
+    }
+}
 pub struct Definition {
     name: String,
     operand_widths: Vec<u8>,
@@ -58,17 +82,6 @@ pub fn format_instruction(
     }
 }
 
-impl TryFrom<u8> for OpCode {
-    type Error = ();
-
-    fn try_from(v: u8) -> Result<Self, Self::Error> {
-        match v {
-            x if x == OpCode::OpConstant as u8 => Ok(OpCode::OpConstant),
-            x if x == OpCode::OpAdd as u8 => Ok(OpCode::OpAdd),
-            _ => Err(()),
-        }
-    }
-}
 
 impl OpCode {
     fn to_definition(&self) -> Definition {
@@ -79,6 +92,30 @@ impl OpCode {
             },
             &OpCode::OpAdd => Definition {
                 name: String::from("OpAdd"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpPop => Definition {
+                name: String::from("OpPop"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpSub => Definition {
+                name: String::from("OpSub"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpMult => Definition {
+                name: String::from("OpMult"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpDiv => Definition {
+                name: String::from("OpDiv"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpTrue => Definition {
+                name: String::from("OpTrue"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpFalse => Definition {
+                name: String::from("OpFalse"),
                 operand_widths: vec![],
             },
         }

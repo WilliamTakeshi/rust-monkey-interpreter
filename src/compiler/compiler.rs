@@ -1,6 +1,7 @@
 use crate::ast::ast::{Expression, Infix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
 use crate::object::object::Object;
+use anyhow::Result;
 
 #[derive(Debug)]
 pub struct Compiler {
@@ -28,43 +29,55 @@ impl Compiler {
         }
     }
 
-    pub fn compile_program(&mut self, program: Program) -> () {
+    pub fn compile_program(&mut self, program: Program) -> Result<()> {
         for stmt in program {
-            self.compile_statement(stmt);
+            self.compile_statement(stmt)?;
         }
+
+        Ok(())
     }
 
-    fn compile_statement(&mut self, stmt: Statement) -> () {
+    fn compile_statement(&mut self, stmt: Statement) -> Result<()> {
         match stmt {
             Statement::ExpressionStmt(expression) => {
-                self.compile_expression(expression);
+                self.compile_expression(expression)?;
+                self.emit(OpCode::OpPop, vec![]);
+                Ok(())
             }
             _ => unimplemented!(),
         }
     }
 
-    fn compile_expression(&mut self, expression: Expression) -> () {
+    fn compile_expression(&mut self, expression: Expression) -> Result<()> {
         match expression {
             Expression::IntLiteral(value) => {
                 let integer = Object::Integer(value as i64);
                 let constant = self.add_constant(integer);
                 self.emit(OpCode::OpConstant, vec![constant]);
+                Ok(())
+            }
+            Expression::Boolean(b) => {
+                match b {
+                    true => self.emit(OpCode::OpTrue, vec![]),
+                    false => self.emit(OpCode::OpFalse, vec![]),
+                };
+                Ok(())
             }
             Expression::InfixExpr(op, left, right) => {
-                self.compile_expression(*left);
-                self.compile_expression(*right);
+                self.compile_expression(*left)?;
+                self.compile_expression(*right)?;
                 match op {
                     Infix::Plus => self.emit(OpCode::OpAdd, vec![]),
-                    // "-" => self.emit(OpCode::OpSub, vec![]),
-                    // "*" => self.emit(OpCode::OpMul, vec![]),
-                    // "/" => self.emit(OpCode::OpDiv, vec![]),
+                    Infix::Minus => self.emit(OpCode::OpSub, vec![]),
+                    Infix::Asterisk => self.emit(OpCode::OpMult, vec![]),
+                    Infix::Slash => self.emit(OpCode::OpDiv, vec![]),
                     // ">" => self.emit(OpCode::OpGreater, vec![]),
                     // "<" => self.emit(OpCode::OpLess, vec![]),
                     // "==" => self.emit(OpCode::OpEqual, vec![]),
                     // "!=" => self.emit(OpCode::OpNotEqual, vec![]),
                     _ => unimplemented!(),
                 };
-                ()
+                Ok(())
             }
             _ => unimplemented!(),
         }
@@ -132,7 +145,13 @@ mod tests {
     fn test_instructions(expected: Vec<Instructions>, actual: Instructions) {
         let concatted = concat_instructions(expected);
 
-        assert_eq!(concatted.len(), actual.len(), "instructions length mismatch, want: {:?}, got: {:?}", string(concatted), string(actual));
+        assert_eq!(
+            concatted.len(),
+            actual.len(),
+            "instructions length mismatch, want: {:?}, got: {:?}",
+            string(concatted),
+            string(actual)
+        );
 
         for (i, instr) in concatted.iter().enumerate() {
             assert_eq!(actual[i], *instr);
@@ -153,15 +172,83 @@ mod tests {
 
     #[test]
     fn test_integer_arithmetic() {
-        let tests: Vec<CompilerTestCase> = vec![CompilerTestCase {
-            input: String::from("1 + 2"),
-            expected_constants: vec![1, 2],
-            expected_instructions: vec![
-                make(OpCode::OpConstant, vec![0]),
-                make(OpCode::OpConstant, vec![1]),
-                make(OpCode::OpAdd, vec![]),
-            ],
-        }];
+        let tests: Vec<CompilerTestCase> = vec![
+            CompilerTestCase {
+                input: String::from("1 + 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1; 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 - 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpSub, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 * 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpMult, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("2 / 1"),
+                expected_constants: vec![2, 1],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpDiv, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+
+    #[test]
+    fn test_boolean_arithmetic() {
+        let tests: Vec<CompilerTestCase> = vec![
+            CompilerTestCase {
+                input: String::from("true"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpTrue, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("false"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpFalse, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
 
         run_compiler_tests(tests)
     }

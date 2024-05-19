@@ -3,9 +3,12 @@ use crate::compiler::compiler::Bytecode;
 use crate::object::object::Object;
 use anyhow::{anyhow, Result};
 
-const STACK_SIZE: usize = 50;
-// const STACK_SIZE: usize = 2048;
+// const STACK_SIZE: usize = 50;
+const STACK_SIZE: usize = 2048;
 
+
+const TRUE: Object = Object::Boolean(true);
+const FALSE: Object = Object::Boolean(false);
 #[derive(Debug)]
 pub struct Vm {
     constants: Vec<Object>,
@@ -49,22 +52,46 @@ impl Vm {
                         return result;
                     }
                 }
-                Ok(OpCode::OpAdd) => {
-                    let right = self.pop();
-                    let left = self.pop();
-
-                    match (left, right) {
-                        (Object::Integer(left), Object::Integer(right)) => {
-                            self.push(Object::Integer(left + right))?;
+                Ok(op)
+                    if op == OpCode::OpAdd
+                        || op == OpCode::OpSub
+                        || op == OpCode::OpMult
+                        || op == OpCode::OpDiv => {
+                            self.execute_binary_operation(op)?;
                         }
-                        _ => Err(anyhow!("unsupported types for OpAdd"))?,
-                    }
+                Ok(OpCode::OpTrue) => self.push(TRUE)?,
+                Ok(OpCode::OpFalse) => self.push(FALSE)?,
+                Ok(OpCode::OpPop) => {
+                    self.pop();
                 }
                 _ => todo!(),
             }
             ip += 1;
         }
         Ok(())
+    }
+
+    fn execute_binary_operation(&mut self, op: OpCode) -> Result<()> {
+        let right = self.pop();
+        let left = self.pop();
+
+        match (left, right) {
+            (Object::Integer(left), Object::Integer(right)) => {
+                self.execute_binary_integer_operation(op, left, right)?;
+            }
+            _ => Err(anyhow!("unsupported types for OpAdd"))?,
+        }
+        Ok(())
+    }
+    
+    fn execute_binary_integer_operation(&mut self, op: OpCode, left: i64, right: i64) -> Result<()> {
+        match op {
+            OpCode::OpAdd => self.push(Object::Integer(left + right)),
+            OpCode::OpSub => self.push(Object::Integer(left - right)),
+            OpCode::OpMult => self.push(Object::Integer(left * right)),
+            OpCode::OpDiv => self.push(Object::Integer(left / right)),
+            _ => Err(anyhow!("unknown integer operator: {:?}", op)),
+        }
     }
 
     fn push(&mut self, obj: Object) -> Result<()> {
@@ -80,9 +107,13 @@ impl Vm {
 
     fn pop(&mut self) -> Object {
         let obj = self.stack[self.sp - 1].clone();
-        self.stack[self.sp - 1] = Object::Null;
+        // self.stack[self.sp - 1] = Object::Null;
         self.sp -= 1;
         obj
+    }
+
+    pub fn last_popped_stack_elem(&self) -> Object {
+        self.stack[self.sp].clone()
     }
 }
 
@@ -111,16 +142,20 @@ mod tests {
 
             // assert!(false);
 
-            let stack = vm
-                .stack
-                .iter()
-                .filter(|x| x != &&Object::Null)
-                .collect::<Vec<_>>();
-            assert_eq!(stack.len(), expected.len(), "stack has wrong number of objects got={:?}, want={:?}", stack, expected);
+            let stack_element = vm.last_popped_stack_elem();
 
-            for (i, obj) in expected.iter().enumerate() {
-                assert_eq!(stack[i], obj);
-            }
+            assert_eq!(stack_element, expected[0]);
+
+            // let stack = vm
+            //     .stack
+            //     .iter()
+            //     .filter(|x| x != &&Object::Null)
+            //     .collect::<Vec<_>>();
+            // // assert_eq!(stack.len(), expected.len(), "stack has wrong number of objects got={:?}, want={:?}", stack, expected);
+
+            // for (i, obj) in expected.iter().enumerate() {
+            //     assert_eq!(stack[i], obj);
+            // }
         }
     }
 
@@ -138,6 +173,62 @@ mod tests {
             VmTestCase {
                 input: "1 + 2".to_string(),
                 expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "1 - 2".to_string(),
+                expected: vec![Object::Integer(-1)],
+            },
+            VmTestCase {
+                input: "1 * 2".to_string(),
+                expected: vec![Object::Integer(2)],
+            },
+            VmTestCase {
+                input: "4 / 2".to_string(),
+                expected: vec![Object::Integer(2)],
+            },
+            VmTestCase {
+                input: "50 / 2 * 2 + 10 - 5".to_string(),
+                expected: vec![Object::Integer(55)],
+            },
+            VmTestCase {
+                input: "5 * (2 + 10)".to_string(),
+                expected: vec![Object::Integer(60)],
+            },
+            VmTestCase {
+                input: "5 + 5 + 5 + 5 - 10".to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "2 * 2 * 2 * 2 * 2".to_string(),
+                expected: vec![Object::Integer(32)],
+            },
+            VmTestCase {
+                input: "5 * 2 + 10".to_string(),
+                expected: vec![Object::Integer(20)],
+            },
+            VmTestCase {
+                input: "5 + 2 * 10".to_string(),
+                expected: vec![Object::Integer(25)],
+            },
+            VmTestCase {
+                input: "5 * (2 + 10)".to_string(),
+                expected: vec![Object::Integer(60)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_boolean_expressions() {
+        let tests = vec![
+            VmTestCase {
+                input: "true".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "false".to_string(),
+                expected: vec![Object::Boolean(false)],
             },
         ];
 
