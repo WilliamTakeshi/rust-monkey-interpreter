@@ -15,6 +15,8 @@ pub enum OpCode {
     OpEqual,
     OpNotEqual,
     OpGreaterThan,
+    OpMinus,
+    OpBang
 }
 
 impl TryFrom<u8> for OpCode {
@@ -33,6 +35,8 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpEqual as u8 => Ok(OpCode::OpEqual),
             x if x == OpCode::OpNotEqual as u8 => Ok(OpCode::OpNotEqual),
             x if x == OpCode::OpGreaterThan as u8 => Ok(OpCode::OpGreaterThan),
+            x if x == OpCode::OpMinus as u8 => Ok(OpCode::OpMinus),
+            x if x == OpCode::OpBang as u8 => Ok(OpCode::OpBang),
             _ => Err(()),
         }
     }
@@ -133,6 +137,14 @@ impl OpCode {
             },
             &OpCode::OpGreaterThan => Definition {
                 name: String::from("OpGreaterThan"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpMinus => Definition {
+                name: String::from("OpMinus"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpBang => Definition {
+                name: String::from("OpBang"),
                 operand_widths: vec![],
             },
         }

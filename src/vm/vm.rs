@@ -68,6 +68,12 @@ impl Vm {
                 {
                     self.execute_comparition(op)?;
                 }
+                Ok(OpCode::OpBang) => {
+                    self.execute_bang_operator()?;
+                }
+                Ok(OpCode::OpMinus) => {
+                    self.execute_minus_operator()?;
+                }
                 Ok(OpCode::OpTrue) => self.push(TRUE)?,
                 Ok(OpCode::OpFalse) => self.push(FALSE)?,
                 Ok(OpCode::OpPop) => {
@@ -78,6 +84,24 @@ impl Vm {
             ip += 1;
         }
         Ok(())
+    }
+
+    fn execute_minus_operator(&mut self) -> Result<()> {
+        let operand = self.pop();
+        match operand {
+            Object::Integer(operand) => self.push(Object::Integer(-operand)),
+            _ => return Err(anyhow!("unsupported type for OpMinus")),
+        }
+    }
+
+    fn execute_bang_operator(&mut self) -> Result<()> {
+        let operand = self.pop();
+        match operand {
+            Object::Boolean(true) => self.push(FALSE),
+            Object::Boolean(false) => self.push(TRUE),
+            Object::Null => self.push(TRUE),
+            _ => self.push(FALSE),
+        }
     }
 
     fn execute_comparition(&mut self, op: OpCode) -> Result<()> {
@@ -107,9 +131,6 @@ impl Vm {
     }
 
     fn execute_integer_comparition(&mut self, op: OpCode, left: i64, right: i64) -> Result<()> {
-        dbg!(&op);
-        dbg!(&left);
-        dbg!(&right);
         match op {
             OpCode::OpEqual => self.push(Object::Boolean(left == right)),
             OpCode::OpNotEqual => self.push(Object::Boolean(left != right)),
@@ -266,6 +287,22 @@ mod tests {
                 input: "5 * (2 + 10)".to_string(),
                 expected: vec![Object::Integer(60)],
             },
+            VmTestCase {
+                input: "-5".to_string(),
+                expected: vec![Object::Integer(-5)],
+            },
+            VmTestCase {
+                input: "-10".to_string(),
+                expected: vec![Object::Integer(-10)],
+            },
+            VmTestCase {
+                input: "-50 + 100 + -50".to_string(),
+                expected: vec![Object::Integer(0)],
+            },
+            VmTestCase {
+                input: "(5 + 10 * 2 + 15 / 3) * 2 + -10".to_string(),
+                expected: vec![Object::Integer(50)],
+            },
         ];
 
         run_vm_tests(tests);
@@ -348,6 +385,30 @@ mod tests {
             },
             VmTestCase {
                 input: "(1 > 2) == false".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "!true".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "!false".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "!5".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "!!true".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "!!false".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "!!5".to_string(),
                 expected: vec![Object::Boolean(true)],
             },
         ];

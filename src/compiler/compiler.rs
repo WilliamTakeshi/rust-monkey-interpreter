@@ -1,4 +1,4 @@
-use crate::ast::ast::{Expression, Infix, Program, Statement};
+use crate::ast::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
 use crate::object::object::Object;
 use anyhow::Result;
@@ -60,6 +60,14 @@ impl Compiler {
                 match b {
                     true => self.emit(OpCode::OpTrue, vec![]),
                     false => self.emit(OpCode::OpFalse, vec![]),
+                };
+                Ok(())
+            }
+            Expression::PrefixExpr(op, right) => {
+                self.compile_expression(*right)?;
+                match op {
+                    Prefix::Bang => self.emit(OpCode::OpBang, vec![]),
+                    Prefix::Minus => self.emit(OpCode::OpMinus, vec![]),
                 };
                 Ok(())
             }
@@ -230,6 +238,15 @@ mod tests {
                     make(OpCode::OpPop, vec![]),
                 ],
             },
+            CompilerTestCase {
+                input: String::from("-1"),
+                expected_constants: vec![1],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpMinus, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
         ];
 
         run_compiler_tests(tests)
@@ -311,6 +328,15 @@ mod tests {
                     make(OpCode::OpTrue, vec![]),
                     make(OpCode::OpFalse, vec![]),
                     make(OpCode::OpNotEqual, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("!true"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpTrue, vec![]),
+                    make(OpCode::OpBang, vec![]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
