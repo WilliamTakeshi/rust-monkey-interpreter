@@ -3,10 +3,19 @@ use crate::code::code::{make, Instructions, OpCode};
 use crate::object::object::Object;
 use anyhow::Result;
 
+#[derive(Debug, Clone)]
+struct EmittedInstruction {
+    opcode: OpCode,
+    position: usize,
+}
+
 #[derive(Debug)]
 pub struct Compiler {
     instructions: Instructions,
     constants: Vec<Object>,
+
+    last_instruction: Option<EmittedInstruction>,
+    previous_instruction: Option<EmittedInstruction>,
 }
 
 #[derive(Debug)]
@@ -20,6 +29,8 @@ impl Compiler {
         Compiler {
             instructions: vec![],
             constants: vec![],
+            last_instruction: None,
+            previous_instruction: None,
         }
     }
     pub fn bytecode(&self) -> Bytecode {
@@ -46,6 +57,14 @@ impl Compiler {
             }
             _ => unimplemented!(),
         }
+    }
+
+    fn compile_block(&mut self, block: Vec<Statement>) -> Result<()> {
+        for stmt in block {
+            self.compile_statement(stmt)?;
+        }
+
+        Ok(())
     }
 
     fn compile_expression(&mut self, expression: Expression) -> Result<()> {
@@ -94,8 +113,68 @@ impl Compiler {
                 };
                 Ok(())
             }
+            Expression::IfExpr(condition, consequence, alternative) => {
+                self.compile_expression(*condition)?;
+
+                // Emit an `OpJumpNotTruthy` with a bogus value
+                let jump_not_truthy_pos = self.emit(OpCode::OpJumpNotTruthy, vec![9999]);
+
+                self.compile_block(consequence)?;
+
+                if self.last_instruction_is_pop() {
+                    self.remove_last_pop();
+                }
+
+                if alternative.is_empty() {
+                    let after_consequence_pos = self.instructions.len();
+                    self.change_operand(jump_not_truthy_pos, after_consequence_pos as u16);
+                } else {
+                    // Emit an `OpJump` with a bogus value
+                    let jump_pos = self.emit(OpCode::OpJump, vec![9999]);
+                    let after_consequence_pos = self.instructions.len();
+                    self.change_operand(jump_not_truthy_pos, after_consequence_pos as u16);
+
+                    self.compile_block(alternative)?;
+                    if self.last_instruction_is_pop() {
+                        self.remove_last_pop();
+                    }
+
+                    let after_alternative_pos = self.instructions.len();
+                    self.change_operand(jump_pos, after_alternative_pos as u16);
+                }
+
+                Ok(())
+            }
             _ => unimplemented!(),
         }
+    }
+
+    fn replace_instruction(&mut self, pos: usize, new_instruction: Instructions) {
+        for i in 0..new_instruction.len() {
+            self.instructions[pos + i] = new_instruction[i];
+        }
+    }
+
+    fn change_operand(&mut self, op_pos: usize, operand: u16) {
+        let op = self.instructions[op_pos];
+        let new_instruction = make(
+            OpCode::try_from(op).expect("Not valid operand"),
+            vec![operand],
+        );
+
+        self.replace_instruction(op_pos, new_instruction);
+    }
+
+    fn last_instruction_is_pop(&self) -> bool {
+        match &self.last_instruction {
+            Some(instr) => instr.opcode == OpCode::OpPop,
+            None => false,
+        }
+    }
+
+    fn remove_last_pop(&mut self) {
+        self.instructions.pop();
+        self.last_instruction = self.previous_instruction.clone();
     }
 
     fn add_constant(&mut self, obj: Object) -> u16 {
@@ -104,8 +183,20 @@ impl Compiler {
     }
 
     fn emit(&mut self, op: OpCode, operands: Vec<u16>) -> usize {
-        let instruction = make(op, operands);
-        self.add_instruction(instruction)
+        let instruction = make(op.clone(), operands);
+        let pos = self.add_instruction(instruction);
+
+        self.set_last_instruction(op, pos);
+
+        pos
+    }
+
+    fn set_last_instruction(&mut self, opcode: OpCode, position: usize) {
+        let previous = self.last_instruction.clone();
+        let last = EmittedInstruction { opcode, position };
+
+        self.previous_instruction = previous;
+        self.last_instruction = Some(last);
     }
 
     fn add_instruction(&mut self, instruction: Instructions) -> usize {
@@ -128,7 +219,7 @@ mod tests {
 
     struct CompilerTestCase {
         input: String,
-        expected_constants: Vec<u8>,
+        expected_constants: Vec<u16>,
         expected_instructions: Vec<Instructions>,
     }
 
@@ -147,7 +238,8 @@ mod tests {
             compiler.compile_program(program);
 
             let bytecode = compiler.bytecode();
-
+            dbg!(&bytecode.constants);
+            dbg!(&expected_constants);
             assert_eq!(bytecode.constants.len(), expected_constants.len());
 
             for (i, constant) in expected_constants.iter().enumerate() {
@@ -167,9 +259,15 @@ mod tests {
             string(concatted),
             string(actual)
         );
+        dbg!(string(concatted.clone()));
+        dbg!(string(actual.clone()));
 
         for (i, instr) in concatted.iter().enumerate() {
-            assert_eq!(actual[i], *instr);
+            assert_eq!(
+                actual[i], *instr,
+                "instructions mismatch at index: {}, got: {}. want: {}",
+                i, actual[i], instr
+            );
         }
     }
 
@@ -337,6 +435,46 @@ mod tests {
                 expected_instructions: vec![
                     make(OpCode::OpTrue, vec![]),
                     make(OpCode::OpBang, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_conditionals() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("if (true) { 10 } ; 3333;"),
+                expected_constants: vec![10, 3333],
+                expected_instructions: vec![
+                    // 0000
+                    make(OpCode::OpTrue, vec![]),
+                    // 0001
+                    make(OpCode::OpJumpNotTruthy, vec![7]),
+                    // 0004
+                    make(OpCode::OpConstant, vec![0]),
+                    // 0007
+                    make(OpCode::OpPop, vec![]),
+                    // 0008
+                    make(OpCode::OpConstant, vec![1]),
+                    // 0011
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("if (true) { 10 } else { 20 }; 3333;"),
+                expected_constants: vec![10, 20, 3333],
+                expected_instructions: vec![
+                    make(OpCode::OpTrue, vec![]),
+                    make(OpCode::OpJumpNotTruthy, vec![10]),
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpJump, vec![13]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                    make(OpCode::OpConstant, vec![2]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

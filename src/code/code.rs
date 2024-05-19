@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 pub type Instructions = Vec<u8>;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OpCode {
     OpConstant = 0,
     OpAdd = 1,
@@ -16,7 +16,9 @@ pub enum OpCode {
     OpNotEqual,
     OpGreaterThan,
     OpMinus,
-    OpBang
+    OpBang,
+    OpJumpNotTruthy,
+    OpJump,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -37,6 +39,8 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpGreaterThan as u8 => Ok(OpCode::OpGreaterThan),
             x if x == OpCode::OpMinus as u8 => Ok(OpCode::OpMinus),
             x if x == OpCode::OpBang as u8 => Ok(OpCode::OpBang),
+            x if x == OpCode::OpJumpNotTruthy as u8 => Ok(OpCode::OpJumpNotTruthy),
+            x if x == OpCode::OpJump as u8 => Ok(OpCode::OpJump),
             _ => Err(()),
         }
     }
@@ -146,6 +150,14 @@ impl OpCode {
             &OpCode::OpBang => Definition {
                 name: String::from("OpBang"),
                 operand_widths: vec![],
+            },
+            &OpCode::OpJumpNotTruthy => Definition {
+                name: String::from("OpJumpNotTruthy"),
+                operand_widths: vec![2],
+            },
+            &OpCode::OpJump => Definition {
+                name: String::from("OpJump"),
+                operand_widths: vec![2],
             },
         }
     }
