@@ -125,23 +125,22 @@ impl Compiler {
                     self.remove_last_pop();
                 }
 
-                if alternative.is_empty() {
-                    let after_consequence_pos = self.instructions.len();
-                    self.change_operand(jump_not_truthy_pos, after_consequence_pos as u16);
-                } else {
-                    // Emit an `OpJump` with a bogus value
-                    let jump_pos = self.emit(OpCode::OpJump, vec![9999]);
-                    let after_consequence_pos = self.instructions.len();
-                    self.change_operand(jump_not_truthy_pos, after_consequence_pos as u16);
+                // Emit an `OpJump` with a bogus value
+                let jump_pos = self.emit(OpCode::OpJump, vec![9999]);
+                let after_consequence_pos = self.instructions.len();
+                self.change_operand(jump_not_truthy_pos, after_consequence_pos as u16);
 
+                if alternative.is_empty() {
+                    self.emit(OpCode::OpNull, vec![]);
+                } else {
                     self.compile_block(alternative)?;
                     if self.last_instruction_is_pop() {
                         self.remove_last_pop();
                     }
-
-                    let after_alternative_pos = self.instructions.len();
-                    self.change_operand(jump_pos, after_alternative_pos as u16);
                 }
+
+                let after_alternative_pos = self.instructions.len();
+                self.change_operand(jump_pos, after_alternative_pos as u16);
 
                 Ok(())
             }
@@ -453,14 +452,18 @@ mod tests {
                     // 0000
                     make(OpCode::OpTrue, vec![]),
                     // 0001
-                    make(OpCode::OpJumpNotTruthy, vec![7]),
+                    make(OpCode::OpJumpNotTruthy, vec![10]),
                     // 0004
                     make(OpCode::OpConstant, vec![0]),
                     // 0007
-                    make(OpCode::OpPop, vec![]),
-                    // 0008
-                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpJump, vec![11]),
+                    // 0010
+                    make(OpCode::OpNull, vec![]),
                     // 0011
+                    make(OpCode::OpPop, vec![]),
+                    // 0012
+                    make(OpCode::OpConstant, vec![1]),
+                    // 0015
                     make(OpCode::OpPop, vec![]),
                 ],
             },

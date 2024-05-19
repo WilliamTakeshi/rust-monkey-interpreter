@@ -19,6 +19,7 @@ pub enum OpCode {
     OpBang,
     OpJumpNotTruthy,
     OpJump,
+    OpNull,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -41,6 +42,7 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpBang as u8 => Ok(OpCode::OpBang),
             x if x == OpCode::OpJumpNotTruthy as u8 => Ok(OpCode::OpJumpNotTruthy),
             x if x == OpCode::OpJump as u8 => Ok(OpCode::OpJump),
+            x if x == OpCode::OpNull as u8 => Ok(OpCode::OpNull),
             _ => Err(()),
         }
     }
@@ -158,6 +160,10 @@ impl OpCode {
             &OpCode::OpJump => Definition {
                 name: String::from("OpJump"),
                 operand_widths: vec![2],
+            },
+            &OpCode::OpNull => Definition {
+                name: String::from("OpNull"),
+                operand_widths: vec![],
             },
         }
     }
