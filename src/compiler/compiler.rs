@@ -64,6 +64,14 @@ impl Compiler {
                 Ok(())
             }
             Expression::InfixExpr(op, left, right) => {
+                // Special case, we still use greaterThan, but evaluate right then left
+                if op == Infix::Lt {
+                    self.compile_expression(*right)?;
+                    self.compile_expression(*left)?;
+                    self.emit(OpCode::OpGreaterThan, vec![]);
+                    return Ok(());
+                }
+
                 self.compile_expression(*left)?;
                 self.compile_expression(*right)?;
                 match op {
@@ -71,10 +79,9 @@ impl Compiler {
                     Infix::Minus => self.emit(OpCode::OpSub, vec![]),
                     Infix::Asterisk => self.emit(OpCode::OpMult, vec![]),
                     Infix::Slash => self.emit(OpCode::OpDiv, vec![]),
-                    // ">" => self.emit(OpCode::OpGreater, vec![]),
-                    // "<" => self.emit(OpCode::OpLess, vec![]),
-                    // "==" => self.emit(OpCode::OpEqual, vec![]),
-                    // "!=" => self.emit(OpCode::OpNotEqual, vec![]),
+                    Infix::Gt => self.emit(OpCode::OpGreaterThan, vec![]),
+                    Infix::Eq => self.emit(OpCode::OpEqual, vec![]),
+                    Infix::Neq => self.emit(OpCode::OpNotEqual, vec![]),
                     _ => unimplemented!(),
                 };
                 Ok(())
@@ -228,9 +235,8 @@ mod tests {
         run_compiler_tests(tests)
     }
 
-
     #[test]
-    fn test_boolean_arithmetic() {
+    fn test_boolean_expressions() {
         let tests: Vec<CompilerTestCase> = vec![
             CompilerTestCase {
                 input: String::from("true"),
@@ -245,6 +251,66 @@ mod tests {
                 expected_constants: vec![],
                 expected_instructions: vec![
                     make(OpCode::OpFalse, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 > 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpGreaterThan, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 < 2"),
+                expected_constants: vec![2, 1],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpGreaterThan, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 == 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpEqual, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("1 != 2"),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpNotEqual, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("true == false"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpTrue, vec![]),
+                    make(OpCode::OpFalse, vec![]),
+                    make(OpCode::OpEqual, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("true != false"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpTrue, vec![]),
+                    make(OpCode::OpFalse, vec![]),
+                    make(OpCode::OpNotEqual, vec![]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

@@ -1,3 +1,5 @@
+use std::fs::OpenOptions;
+
 use crate::code::code::{Instructions, OpCode};
 use crate::compiler::compiler::Bytecode;
 use crate::object::object::Object;
@@ -5,7 +7,6 @@ use anyhow::{anyhow, Result};
 
 // const STACK_SIZE: usize = 50;
 const STACK_SIZE: usize = 2048;
-
 
 const TRUE: Object = Object::Boolean(true);
 const FALSE: Object = Object::Boolean(false);
@@ -56,9 +57,17 @@ impl Vm {
                     if op == OpCode::OpAdd
                         || op == OpCode::OpSub
                         || op == OpCode::OpMult
-                        || op == OpCode::OpDiv => {
-                            self.execute_binary_operation(op)?;
-                        }
+                        || op == OpCode::OpDiv =>
+                {
+                    self.execute_binary_operation(op)?;
+                }
+                Ok(op)
+                    if op == OpCode::OpGreaterThan
+                        || op == OpCode::OpNotEqual
+                        || op == OpCode::OpEqual =>
+                {
+                    self.execute_comparition(op)?;
+                }
                 Ok(OpCode::OpTrue) => self.push(TRUE)?,
                 Ok(OpCode::OpFalse) => self.push(FALSE)?,
                 Ok(OpCode::OpPop) => {
@@ -69,6 +78,44 @@ impl Vm {
             ip += 1;
         }
         Ok(())
+    }
+
+    fn execute_comparition(&mut self, op: OpCode) -> Result<()> {
+        let right_obj = self.pop();
+        let left_obj = self.pop();
+
+        match (left_obj.clone(), right_obj.clone()) {
+            (Object::Integer(left), Object::Integer(right)) => {
+                self.execute_integer_comparition(op, left, right)
+            }
+            (Object::Boolean(left), Object::Boolean(right)) => match op {
+                OpCode::OpEqual => self.push(Object::Boolean(left == right)),
+                OpCode::OpNotEqual => self.push(Object::Boolean(left != right)),
+                _ => Err(anyhow!(
+                    "Unknown operator: {:?} ({} {})",
+                    op,
+                    left_obj.obj_type(),
+                    right_obj.obj_type()
+                )),
+            },
+            _ => Err(anyhow!(
+                "Left and Right should be both same type, got={} and {}",
+                left_obj.obj_type(),
+                right_obj.obj_type()
+            )),
+        }
+    }
+
+    fn execute_integer_comparition(&mut self, op: OpCode, left: i64, right: i64) -> Result<()> {
+        dbg!(&op);
+        dbg!(&left);
+        dbg!(&right);
+        match op {
+            OpCode::OpEqual => self.push(Object::Boolean(left == right)),
+            OpCode::OpNotEqual => self.push(Object::Boolean(left != right)),
+            OpCode::OpGreaterThan => self.push(Object::Boolean(left > right)),
+            _ => Err(anyhow!("Unknown operator: {:?}", op)),
+        }
     }
 
     fn execute_binary_operation(&mut self, op: OpCode) -> Result<()> {
@@ -83,8 +130,13 @@ impl Vm {
         }
         Ok(())
     }
-    
-    fn execute_binary_integer_operation(&mut self, op: OpCode, left: i64, right: i64) -> Result<()> {
+
+    fn execute_binary_integer_operation(
+        &mut self,
+        op: OpCode,
+        left: i64,
+        right: i64,
+    ) -> Result<()> {
         match op {
             OpCode::OpAdd => self.push(Object::Integer(left + right)),
             OpCode::OpSub => self.push(Object::Integer(left - right)),
@@ -229,6 +281,74 @@ mod tests {
             VmTestCase {
                 input: "false".to_string(),
                 expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 < 2".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "1 > 2".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 < 1".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 > 1".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 == 1".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "1 != 1".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 == 2".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "1 != 2".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "true == true".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "false == false".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "true == false".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "true != false".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "false != true".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "(1 < 2) == true".to_string(),
+                expected: vec![Object::Boolean(true)],
+            },
+            VmTestCase {
+                input: "(1 < 2) == false".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "(1 > 2) == true".to_string(),
+                expected: vec![Object::Boolean(false)],
+            },
+            VmTestCase {
+                input: "(1 > 2) == false".to_string(),
+                expected: vec![Object::Boolean(true)],
             },
         ];
 

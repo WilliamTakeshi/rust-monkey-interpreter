@@ -12,6 +12,9 @@ pub enum OpCode {
     OpDiv,
     OpTrue,
     OpFalse,
+    OpEqual,
+    OpNotEqual,
+    OpGreaterThan,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -27,6 +30,9 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpDiv as u8 => Ok(OpCode::OpDiv),
             x if x == OpCode::OpTrue as u8 => Ok(OpCode::OpTrue),
             x if x == OpCode::OpFalse as u8 => Ok(OpCode::OpFalse),
+            x if x == OpCode::OpEqual as u8 => Ok(OpCode::OpEqual),
+            x if x == OpCode::OpNotEqual as u8 => Ok(OpCode::OpNotEqual),
+            x if x == OpCode::OpGreaterThan as u8 => Ok(OpCode::OpGreaterThan),
             _ => Err(()),
         }
     }
@@ -82,7 +88,6 @@ pub fn format_instruction(
     }
 }
 
-
 impl OpCode {
     fn to_definition(&self) -> Definition {
         match self {
@@ -116,6 +121,18 @@ impl OpCode {
             },
             &OpCode::OpFalse => Definition {
                 name: String::from("OpFalse"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpEqual => Definition {
+                name: String::from("OpEqual"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpNotEqual => Definition {
+                name: String::from("OpNotEqual"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpGreaterThan => Definition {
+                name: String::from("OpGreaterThan"),
                 operand_widths: vec![],
             },
         }
