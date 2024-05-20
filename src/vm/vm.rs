@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::code::code::{Instructions, OpCode};
@@ -153,11 +154,36 @@ impl Vm {
 
                     self.push(array)?;
                 }
+                Ok(OpCode::OpHash) => {
+                    let num_elements =
+                        u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap())
+                            as usize;
+                    ip += 2;
+
+                    let hash = self.build_hash(self.sp - num_elements, self.sp);
+
+                    self.sp -= num_elements;
+
+                    self.push(Object::Hash(hash))?;
+                }
                 _ => todo!(),
             }
             ip += 1;
         }
         Ok(())
+    }
+
+    fn build_hash(&self, start_index: usize, end_index: usize) -> HashMap<Object, Object> {
+        let mut hash = HashMap::new();
+
+        for i in (start_index..end_index).step_by(2) {
+            let key = self.stack[i].clone();
+            let value = self.stack[i + 1].clone();
+
+            hash.insert(key, value);
+        }
+
+        hash
     }
 
     fn build_array(&self, start_index: usize, end_index: usize) -> Object {
@@ -299,6 +325,8 @@ impl Vm {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use crate::compiler::compiler::Compiler;
     use crate::{lexer::Lexer, object::object::Object, parser::Parser};
 
@@ -628,6 +656,32 @@ mod tests {
                     Object::Integer(12),
                     Object::Integer(11),
                 ])],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let tests = vec![
+            VmTestCase {
+                input: "{}".to_string(),
+                expected: vec![Object::Hash(HashMap::new())],
+            },
+            VmTestCase {
+                input: "{1: 2, 2: 3}".to_string(),
+                expected: vec![Object::Hash(HashMap::from([
+                    (Object::Integer(1), Object::Integer(2)),
+                    (Object::Integer(2), Object::Integer(3)),
+                ]))],
+            },
+            VmTestCase {
+                input: "{1 + 1: 2 * 2, 3 + 3: 4 * 4}".to_string(),
+                expected: vec![Object::Hash(HashMap::from([
+                    (Object::Integer(2), Object::Integer(4)),
+                    (Object::Integer(6), Object::Integer(16)),
+                ]))],
             },
         ];
 

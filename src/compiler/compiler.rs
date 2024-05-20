@@ -197,6 +197,18 @@ impl Compiler {
                 self.emit(OpCode::OpArray, vec![elements_len as u16]);
                 Ok(())
             }
+            Expression::HashLiteral(pairs) => {
+                let pairs_len = pairs.len();
+
+                for (key, value) in pairs {
+                    self.compile_expression(key)?;
+                    self.compile_expression(value)?;
+                }
+
+                self.emit(OpCode::OpHash, vec![(pairs_len * 2) as u16]);
+
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -668,6 +680,66 @@ mod tests {
                     make(OpCode::OpConstant, vec![5]),
                     make(OpCode::OpMult, vec![]),
                     make(OpCode::OpArray, vec![3]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_hash_literals() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("{}"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpHash, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("{1: 2, 3: 4, 5: 6}"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(4),
+                    Object::Integer(5),
+                    Object::Integer(6),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpConstant, vec![4]),
+                    make(OpCode::OpConstant, vec![5]),
+                    make(OpCode::OpHash, vec![6]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("{1: 2 + 3, 4: 5 * 6}"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(4),
+                    Object::Integer(5),
+                    Object::Integer(6),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpConstant, vec![4]),
+                    make(OpCode::OpConstant, vec![5]),
+                    make(OpCode::OpMult, vec![]),
+                    make(OpCode::OpHash, vec![4]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

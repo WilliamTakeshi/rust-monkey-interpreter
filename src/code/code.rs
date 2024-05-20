@@ -23,6 +23,7 @@ pub enum OpCode {
     OpGetGlobal,
     OpSetGlobal,
     OpArray,
+    OpHash,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -49,6 +50,7 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpGetGlobal as u8 => Ok(OpCode::OpGetGlobal),
             x if x == OpCode::OpSetGlobal as u8 => Ok(OpCode::OpSetGlobal),
             x if x == OpCode::OpArray as u8 => Ok(OpCode::OpArray),
+            x if x == OpCode::OpHash as u8 => Ok(OpCode::OpHash),
             _ => Err(()),
         }
     }
@@ -181,6 +183,10 @@ impl OpCode {
             },
             &OpCode::OpArray => Definition {
                 name: String::from("OpArray"),
+                operand_widths: vec![2],
+            },
+            &OpCode::OpHash => Definition {
+                name: String::from("OpHash"),
                 operand_widths: vec![2],
             },
         }
