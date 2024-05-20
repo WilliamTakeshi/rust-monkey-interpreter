@@ -38,8 +38,8 @@ impl SymbolTable {
         symbol
     }
 
-    pub fn resolve(&self, name: &str) -> Option<&Symbol> {
-        self.store.get(name)
+    pub fn resolve(&self, name: &str) -> Option<Symbol> {
+        self.store.get(name).cloned()
     }
 }
 
@@ -104,7 +104,7 @@ mod tests {
         for (_, symbol) in expected {
             let result = global.resolve(&symbol.name);
             assert!(result.is_some());
-            assert_eq!(result.unwrap(), &symbol);
+            assert_eq!(result.unwrap(), symbol);
         }
     }
 }

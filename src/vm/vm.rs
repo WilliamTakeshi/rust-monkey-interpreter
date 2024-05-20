@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::code::code::{Instructions, OpCode};
 use crate::compiler::compiler::Bytecode;
 use crate::object::object::Object;
@@ -21,7 +24,7 @@ pub struct Vm {
     stack: [Object; STACK_SIZE],
     sp: usize,
     // globals: Vec<Object>,
-    globals: [Object; GLOBAL_SIZE],
+    pub globals: Rc<RefCell<[Object; GLOBAL_SIZE]>>,
 }
 
 impl Vm {
@@ -32,11 +35,14 @@ impl Vm {
 
             stack: [NULL; STACK_SIZE],
             sp: 0,
-            globals: [NULL; GLOBAL_SIZE],
+            globals: Rc::new(RefCell::new([NULL; GLOBAL_SIZE])),
         }
     }
 
-    pub fn new_with_global_store(bytecode: Bytecode, s: [Object; GLOBAL_SIZE]) -> Self {
+    pub fn new_with_global_store(
+        bytecode: Bytecode,
+        s: Rc<RefCell<[Object; GLOBAL_SIZE]>>,
+    ) -> Self {
         Self {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
@@ -119,14 +125,22 @@ impl Vm {
 
                     dbg!(&global_index);
 
-                    self.globals[global_index as usize] = self.pop();
+                    let obj = self.pop();
+                    let mut globals = self.globals.borrow_mut();
+                    globals[global_index as usize] = obj
                 }
                 Ok(OpCode::OpGetGlobal) => {
                     let global_index =
                         u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
                     ip += 2;
 
-                    self.push(self.globals[global_index as usize].clone())?;
+                    let obj: Object;
+                    {
+                        let globals = self.globals.borrow();
+                        obj = globals[global_index as usize].clone();
+                    }
+
+                    self.push(obj)?;
                 }
                 _ => todo!(),
             }

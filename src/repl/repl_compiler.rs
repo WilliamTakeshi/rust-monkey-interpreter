@@ -5,14 +5,16 @@ use crate::object::object::Object;
 use crate::parser::Parser;
 use crate::vm::vm::{Vm, GLOBAL_SIZE, NULL};
 use anyhow::Result;
+use std::cell::RefCell;
 use std::io;
+use std::rc::Rc;
 
 const PROMPT: &str = ">> ";
 
 pub fn start() -> Result<()> {
     let mut constants: Vec<Object> = vec![];
-    let mut globals = [NULL; GLOBAL_SIZE];
-    let mut symbol_table = SymbolTable::new();
+    let mut globals = Rc::new(RefCell::new([NULL; GLOBAL_SIZE]));
+    let symbol_table = Rc::new(RefCell::new(SymbolTable::new()));
     loop {
         // Print prompt and flush to write it to console
         print!("{}", PROMPT);
@@ -44,8 +46,6 @@ pub fn start() -> Result<()> {
         constants = code.clone().constants;
 
         let mut vm = Vm::new_with_global_store(code, globals.clone());
-        dbg!(&constants);
-        dbg!(&symbol_table);
 
         vm.run()?;
 

@@ -1,3 +1,6 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::ast::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
 use crate::object::object::Object;
@@ -18,7 +21,7 @@ pub struct Compiler {
 
     last_instruction: Option<EmittedInstruction>,
     previous_instruction: Option<EmittedInstruction>,
-    symbol_table: SymbolTable,
+    pub symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,11 +37,11 @@ impl Compiler {
             constants: vec![],
             last_instruction: None,
             previous_instruction: None,
-            symbol_table: SymbolTable::new(),
+            symbol_table: Rc::new(RefCell::new(SymbolTable::new())),
         }
     }
 
-    pub fn new_with_state(symbol_table: SymbolTable, constants: Vec<Object>) -> Self {
+    pub fn new_with_state(symbol_table: Rc<RefCell<SymbolTable>>, constants: Vec<Object>) -> Self {
         Compiler {
             instructions: vec![],
             constants: constants,
@@ -72,7 +75,7 @@ impl Compiler {
             Statement::Let(ident, expr) => {
                 self.compile_expression(expr)?;
 
-                let symbol = self.symbol_table.define(ident);
+                let symbol = self.symbol_table.borrow_mut().define(ident);
 
                 self.emit(OpCode::OpSetGlobal, vec![symbol.index]);
                 Ok(())
@@ -167,7 +170,10 @@ impl Compiler {
                 Ok(())
             }
             Expression::Ident(ident) => {
-                let maybe_symbol = self.symbol_table.resolve(&ident);
+                let mut maybe_symbol = None;
+                {
+                    maybe_symbol = self.symbol_table.borrow().resolve(&ident).clone();
+                }
 
                 if let Some(symbol) = maybe_symbol {
                     self.emit(OpCode::OpGetGlobal, vec![symbol.index]);
