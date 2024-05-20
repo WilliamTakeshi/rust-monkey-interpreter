@@ -1,22 +1,27 @@
-use std::fs::OpenOptions;
-
 use crate::code::code::{Instructions, OpCode};
 use crate::compiler::compiler::Bytecode;
 use crate::object::object::Object;
 use anyhow::{anyhow, Result};
 
-// const STACK_SIZE: usize = 50;
-const STACK_SIZE: usize = 2048;
+pub const STACK_SIZE: usize = 2048;
+pub const GLOBAL_SIZE: usize = 2048;
+// const GLOBAL_SIZE: usize = 65536;
 
-const TRUE: Object = Object::Boolean(true);
-const FALSE: Object = Object::Boolean(false);
+pub const TRUE: Object = Object::Boolean(true);
+pub const FALSE: Object = Object::Boolean(false);
+pub const NULL: Object = Object::Null;
+
+// TODO: Fix overflow when using GLOBAL_SIZE = 65536 (16 bits)
 #[derive(Debug)]
 pub struct Vm {
     constants: Vec<Object>,
     instructions: Instructions,
 
-    stack: Vec<Object>,
+    // stack: Vec<Object>,
+    stack: [Object; STACK_SIZE],
     sp: usize,
+    // globals: Vec<Object>,
+    globals: [Object; GLOBAL_SIZE],
 }
 
 impl Vm {
@@ -25,8 +30,20 @@ impl Vm {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
 
-            stack: vec![Object::Null; STACK_SIZE],
+            stack: [NULL; STACK_SIZE],
             sp: 0,
+            globals: [NULL; GLOBAL_SIZE],
+        }
+    }
+
+    pub fn new_with_global_store(bytecode: Bytecode, s: [Object; GLOBAL_SIZE]) -> Self {
+        Self {
+            constants: bytecode.constants,
+            instructions: bytecode.instructions,
+
+            stack: [NULL; STACK_SIZE],
+            sp: 0,
+            globals: s,
         }
     }
 
@@ -94,6 +111,22 @@ impl Vm {
                 Ok(OpCode::OpNull) => self.push(Object::Null)?,
                 Ok(OpCode::OpPop) => {
                     self.pop();
+                }
+                Ok(OpCode::OpSetGlobal) => {
+                    let global_index =
+                        u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
+                    ip += 2;
+
+                    dbg!(&global_index);
+
+                    self.globals[global_index as usize] = self.pop();
+                }
+                Ok(OpCode::OpGetGlobal) => {
+                    let global_index =
+                        u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
+                    ip += 2;
+
+                    self.push(self.globals[global_index as usize].clone())?;
                 }
                 _ => todo!(),
             }
@@ -486,6 +519,26 @@ mod tests {
             VmTestCase {
                 input: "if ((if (false) { 10 })) { 10 } else { 20 }".to_string(),
                 expected: vec![Object::Integer(20)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_global_let_statements() {
+        let tests = vec![
+            VmTestCase {
+                input: "let one = 1; one".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: "let one = 1; let two = 2; one + two".to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "let one = 1; let two = one + one; one + two;".to_string(),
+                expected: vec![Object::Integer(3)],
             },
         ];
 

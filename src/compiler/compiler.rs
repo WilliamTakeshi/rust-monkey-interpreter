@@ -21,20 +21,30 @@ pub struct Compiler {
     symbol_table: SymbolTable,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Bytecode {
     pub instructions: Instructions,
     pub constants: Vec<Object>,
 }
 
 impl Compiler {
-    pub fn new() -> Compiler {
+    pub fn new() -> Self {
         Compiler {
             instructions: vec![],
             constants: vec![],
             last_instruction: None,
             previous_instruction: None,
             symbol_table: SymbolTable::new(),
+        }
+    }
+
+    pub fn new_with_state(symbol_table: SymbolTable, constants: Vec<Object>) -> Self {
+        Compiler {
+            instructions: vec![],
+            constants: constants,
+            last_instruction: None,
+            previous_instruction: None,
+            symbol_table: symbol_table,
         }
     }
     pub fn bytecode(&self) -> Bytecode {
