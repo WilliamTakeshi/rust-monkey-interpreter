@@ -1,7 +1,9 @@
 use crate::ast::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
 use crate::object::object::Object;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+
+use crate::compiler::symbol_table::SymbolTable;
 
 #[derive(Debug, Clone)]
 struct EmittedInstruction {
@@ -16,6 +18,7 @@ pub struct Compiler {
 
     last_instruction: Option<EmittedInstruction>,
     previous_instruction: Option<EmittedInstruction>,
+    symbol_table: SymbolTable,
 }
 
 #[derive(Debug)]
@@ -31,6 +34,7 @@ impl Compiler {
             constants: vec![],
             last_instruction: None,
             previous_instruction: None,
+            symbol_table: SymbolTable::new(),
         }
     }
     pub fn bytecode(&self) -> Bytecode {
@@ -53,6 +57,14 @@ impl Compiler {
             Statement::ExpressionStmt(expression) => {
                 self.compile_expression(expression)?;
                 self.emit(OpCode::OpPop, vec![]);
+                Ok(())
+            }
+            Statement::Let(ident, expr) => {
+                self.compile_expression(expr)?;
+
+                let symbol = self.symbol_table.define(ident);
+
+                self.emit(OpCode::OpSetGlobal, vec![symbol.index]);
                 Ok(())
             }
             _ => unimplemented!(),
@@ -143,6 +155,16 @@ impl Compiler {
                 self.change_operand(jump_pos, after_alternative_pos as u16);
 
                 Ok(())
+            }
+            Expression::Ident(ident) => {
+                let maybe_symbol = self.symbol_table.resolve(&ident);
+
+                if let Some(symbol) = maybe_symbol {
+                    self.emit(OpCode::OpGetGlobal, vec![symbol.index]);
+                    Ok(())
+                } else {
+                    Err(anyhow!("undefined variable {}", ident))
+                }
             }
             _ => unimplemented!(),
         }
@@ -478,6 +500,56 @@ mod tests {
                     make(OpCode::OpConstant, vec![1]),
                     make(OpCode::OpPop, vec![]),
                     make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_global_let_statements() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from(
+                    "let one = 1;
+                    let two = 2;",
+                ),
+                expected_constants: vec![1, 2],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpSetGlobal, vec![1]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from(
+                    "let one = 1;
+                one;",
+                ),
+                expected_constants: vec![1],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from(
+                    "let one = 1;
+                    let two = one;
+                    two;",
+                ),
+                expected_constants: vec![1],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![1]),
+                    make(OpCode::OpGetGlobal, vec![1]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

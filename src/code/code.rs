@@ -20,6 +20,8 @@ pub enum OpCode {
     OpJumpNotTruthy,
     OpJump,
     OpNull,
+    OpGetGlobal,
+    OpSetGlobal,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -43,6 +45,8 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpJumpNotTruthy as u8 => Ok(OpCode::OpJumpNotTruthy),
             x if x == OpCode::OpJump as u8 => Ok(OpCode::OpJump),
             x if x == OpCode::OpNull as u8 => Ok(OpCode::OpNull),
+            x if x == OpCode::OpGetGlobal as u8 => Ok(OpCode::OpGetGlobal),
+            x if x == OpCode::OpSetGlobal as u8 => Ok(OpCode::OpSetGlobal),
             _ => Err(()),
         }
     }
@@ -164,6 +168,14 @@ impl OpCode {
             &OpCode::OpNull => Definition {
                 name: String::from("OpNull"),
                 operand_widths: vec![],
+            },
+            &OpCode::OpSetGlobal => Definition {
+                name: String::from("OpSetGlobal"),
+                operand_widths: vec![2],
+            },
+            &OpCode::OpGetGlobal => Definition {
+                name: String::from("OpGetGlobal"),
+                operand_widths: vec![2],
             },
         }
     }
