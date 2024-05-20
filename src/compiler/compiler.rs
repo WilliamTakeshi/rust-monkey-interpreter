@@ -209,6 +209,13 @@ impl Compiler {
 
                 Ok(())
             }
+            Expression::IndexExpr(left, idx) => {
+                self.compile_expression(*left)?;
+                self.compile_expression(*idx)?;
+                self.emit(OpCode::OpIndex, vec![]);
+
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -740,6 +747,54 @@ mod tests {
                     make(OpCode::OpConstant, vec![5]),
                     make(OpCode::OpMult, vec![]),
                     make(OpCode::OpHash, vec![4]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("[1, 2, 3][1 + 1]"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(1),
+                    Object::Integer(1),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpArray, vec![3]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpConstant, vec![4]),
+                    make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpIndex, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("{1: 2}[2 - 1]"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(2),
+                    Object::Integer(1),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpHash, vec![2]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpSub, vec![]),
+                    make(OpCode::OpIndex, vec![]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

@@ -166,9 +166,45 @@ impl Vm {
 
                     self.push(Object::Hash(hash))?;
                 }
+                Ok(OpCode::OpIndex) => {
+                    let index = self.pop();
+                    let left = self.pop();
+
+                    self.execute_index_expression(left, index)?;
+                }
                 _ => todo!(),
             }
             ip += 1;
+        }
+        Ok(())
+    }
+
+    fn execute_index_expression(&mut self, left: Object, index: Object) -> Result<()> {
+        let left_type = left.obj_type();
+        match (left, index.clone()) {
+            (Object::Array(elements), Object::Integer(idx)) => {
+                let idx = idx as usize;
+                if idx >= elements.len() {
+                    self.push(Object::Null)?;
+                } else {
+                    self.push(elements[idx].clone())?;
+                }
+            }
+            (Object::Hash(hash), idx) => {
+                let value = hash.get(&idx);
+                if let Some(value) = value {
+                    self.push(value.clone())?;
+                } else {
+                    self.push(Object::Null)?;
+                }
+            }
+            _ => {
+                return Err(anyhow!(
+                    "index operator not supported: {:?} {:?}",
+                    left_type,
+                    index
+                ))
+            }
         }
         Ok(())
     }
@@ -682,6 +718,54 @@ mod tests {
                     (Object::Integer(2), Object::Integer(4)),
                     (Object::Integer(6), Object::Integer(16)),
                 ]))],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_index_expressions() {
+        let tests = vec![
+            VmTestCase {
+                input: "[1, 2, 3][1]".to_string(),
+                expected: vec![Object::Integer(2)],
+            },
+            VmTestCase {
+                input: "[1, 2, 3][0 + 2]".to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "[[1, 1, 1]][0][0]".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: "[][0]".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "[1, 2, 3][99]".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "[1][-1]".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "{1: 1, 2: 2}[1]".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: "{1: 1, 2: 2}[2]".to_string(),
+                expected: vec![Object::Integer(2)],
+            },
+            VmTestCase {
+                input: "{1: 1}[0]".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "{}[0]".to_string(),
+                expected: vec![Object::Null],
             },
         ];
 
