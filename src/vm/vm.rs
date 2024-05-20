@@ -218,6 +218,9 @@ impl Vm {
             (Object::Integer(left), Object::Integer(right)) => {
                 self.execute_binary_integer_operation(op, left, right)?;
             }
+            (Object::String(left), Object::String(right)) => {
+                self.execute_binary_string_operation(op, left, right)?;
+            }
             _ => Err(anyhow!("unsupported types for OpAdd"))?,
         }
         Ok(())
@@ -235,6 +238,18 @@ impl Vm {
             OpCode::OpMult => self.push(Object::Integer(left * right)),
             OpCode::OpDiv => self.push(Object::Integer(left / right)),
             _ => Err(anyhow!("unknown integer operator: {:?}", op)),
+        }
+    }
+
+    fn execute_binary_string_operation(
+        &mut self,
+        op: OpCode,
+        left: String,
+        right: String,
+    ) -> Result<()> {
+        match op {
+            OpCode::OpAdd => self.push(Object::String(format!("{}{}", left, right))),
+            _ => Err(anyhow!("unknown string operator: {:?}", op)),
         }
     }
 
@@ -279,27 +294,18 @@ mod tests {
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
             let mut compiler = Compiler::new();
-            compiler.compile_program(program);
+            let _ = compiler.compile_program(program);
 
             let mut vm = Vm::new(compiler.bytecode());
-            let _ = vm.run();
+            let res = vm.run();
+
+            res.unwrap();
 
             // assert!(false);
 
             let stack_element = vm.last_popped_stack_elem();
 
             assert_eq!(stack_element, expected[0]);
-
-            // let stack = vm
-            //     .stack
-            //     .iter()
-            //     .filter(|x| x != &&Object::Null)
-            //     .collect::<Vec<_>>();
-            // // assert_eq!(stack.len(), expected.len(), "stack has wrong number of objects got={:?}, want={:?}", stack, expected);
-
-            // for (i, obj) in expected.iter().enumerate() {
-            //     assert_eq!(stack[i], obj);
-            // }
         }
     }
 
@@ -553,6 +559,26 @@ mod tests {
             VmTestCase {
                 input: "let one = 1; let two = one + one; one + two;".to_string(),
                 expected: vec![Object::Integer(3)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_string_expressions() {
+        let tests = vec![
+            VmTestCase {
+                input: r#""monkey""#.to_string(),
+                expected: vec![Object::String("monkey".to_string())],
+            },
+            VmTestCase {
+                input: r#""mon"+"key""#.to_string(),
+                expected: vec![Object::String("monkey".to_string())],
+            },
+            VmTestCase {
+                input: r#""mon"+"key"+"banana""#.to_string(),
+                expected: vec![Object::String("monkeybanana".to_string())],
             },
         ];
 

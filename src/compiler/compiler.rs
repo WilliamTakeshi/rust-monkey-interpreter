@@ -182,6 +182,12 @@ impl Compiler {
                     Err(anyhow!("undefined variable {}", ident))
                 }
             }
+            Expression::StringLiteral(s) => {
+                let string = Object::String(s);
+                let constant = self.add_constant(string);
+                self.emit(OpCode::OpConstant, vec![constant]);
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -256,7 +262,7 @@ mod tests {
 
     struct CompilerTestCase {
         input: String,
-        expected_constants: Vec<u16>,
+        expected_constants: Vec<Object>,
         expected_instructions: Vec<Instructions>,
     }
 
@@ -280,7 +286,7 @@ mod tests {
             assert_eq!(bytecode.constants.len(), expected_constants.len());
 
             for (i, constant) in expected_constants.iter().enumerate() {
-                assert_eq!(bytecode.constants[i], Object::Integer(*constant as i64));
+                assert_eq!(bytecode.constants[i], *constant);
             }
             test_instructions(expected_instructions, bytecode.instructions);
         }
@@ -325,7 +331,7 @@ mod tests {
         let tests: Vec<CompilerTestCase> = vec![
             CompilerTestCase {
                 input: String::from("1 + 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -335,7 +341,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1; 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpPop, vec![]),
@@ -345,7 +351,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 - 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -355,7 +361,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 * 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -365,7 +371,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("2 / 1"),
-                expected_constants: vec![2, 1],
+                expected_constants: vec![Object::Integer(2), Object::Integer(1)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -375,7 +381,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("-1"),
-                expected_constants: vec![1],
+                expected_constants: vec![Object::Integer(1)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpMinus, vec![]),
@@ -408,7 +414,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 > 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -418,7 +424,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 < 2"),
-                expected_constants: vec![2, 1],
+                expected_constants: vec![Object::Integer(2), Object::Integer(1)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -428,7 +434,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 == 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -438,7 +444,7 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("1 != 2"),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -485,7 +491,7 @@ mod tests {
         let tests = vec![
             CompilerTestCase {
                 input: String::from("if (true) { 10 } ; 3333;"),
-                expected_constants: vec![10, 3333],
+                expected_constants: vec![Object::Integer(10), Object::Integer(3333)],
                 expected_instructions: vec![
                     // 0000
                     make(OpCode::OpTrue, vec![]),
@@ -507,7 +513,11 @@ mod tests {
             },
             CompilerTestCase {
                 input: String::from("if (true) { 10 } else { 20 }; 3333;"),
-                expected_constants: vec![10, 20, 3333],
+                expected_constants: vec![
+                    Object::Integer(10),
+                    Object::Integer(20),
+                    Object::Integer(3333),
+                ],
                 expected_instructions: vec![
                     make(OpCode::OpTrue, vec![]),
                     make(OpCode::OpJumpNotTruthy, vec![10]),
@@ -532,7 +542,7 @@ mod tests {
                     "let one = 1;
                     let two = 2;",
                 ),
-                expected_constants: vec![1, 2],
+                expected_constants: vec![Object::Integer(1), Object::Integer(2)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpSetGlobal, vec![0]),
@@ -545,7 +555,7 @@ mod tests {
                     "let one = 1;
                 one;",
                 ),
-                expected_constants: vec![1],
+                expected_constants: vec![Object::Integer(1)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpSetGlobal, vec![0]),
@@ -559,13 +569,41 @@ mod tests {
                     let two = one;
                     two;",
                 ),
-                expected_constants: vec![1],
+                expected_constants: vec![Object::Integer(1)],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpSetGlobal, vec![1]),
                     make(OpCode::OpGetGlobal, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+    #[test]
+    fn test_string_expressions() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from(r#""monkey""#),
+                expected_constants: vec![Object::String(String::from("monkey"))],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from(r#""mon" + "key""#),
+                expected_constants: vec![
+                    Object::String(String::from("mon")),
+                    Object::String(String::from("key")),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpAdd, vec![]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
