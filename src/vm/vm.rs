@@ -142,11 +142,32 @@ impl Vm {
 
                     self.push(obj)?;
                 }
+                Ok(OpCode::OpArray) => {
+                    let num_elements =
+                        u16::from_be_bytes(self.instructions[ip + 1..=ip + 2].try_into().unwrap());
+                    ip += 2;
+
+                    let array = self.build_array(self.sp - num_elements as usize, self.sp);
+
+                    self.sp -= num_elements as usize;
+
+                    self.push(array)?;
+                }
                 _ => todo!(),
             }
             ip += 1;
         }
         Ok(())
+    }
+
+    fn build_array(&self, start_index: usize, end_index: usize) -> Object {
+        let mut elements = vec![];
+
+        for i in start_index..end_index {
+            elements.push(self.stack[i].clone());
+        }
+
+        Object::Array(elements)
     }
 
     fn is_truthy(obj: Object) -> bool {
@@ -579,6 +600,34 @@ mod tests {
             VmTestCase {
                 input: r#""mon"+"key"+"banana""#.to_string(),
                 expected: vec![Object::String("monkeybanana".to_string())],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let tests = vec![
+            VmTestCase {
+                input: "[]".to_string(),
+                expected: vec![Object::Array(vec![])],
+            },
+            VmTestCase {
+                input: "[1, 2, 3]".to_string(),
+                expected: vec![Object::Array(vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                ])],
+            },
+            VmTestCase {
+                input: "[1 + 2, 3 * 4, 5 + 6]".to_string(),
+                expected: vec![Object::Array(vec![
+                    Object::Integer(3),
+                    Object::Integer(12),
+                    Object::Integer(11),
+                ])],
             },
         ];
 

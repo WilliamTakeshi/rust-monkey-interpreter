@@ -188,6 +188,15 @@ impl Compiler {
                 self.emit(OpCode::OpConstant, vec![constant]);
                 Ok(())
             }
+            Expression::ArrayLiteral(elements) => {
+                let elements_len = elements.len();
+                for elem in elements {
+                    self.compile_expression(elem)?;
+                }
+
+                self.emit(OpCode::OpArray, vec![elements_len as u16]);
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -604,6 +613,61 @@ mod tests {
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
                     make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_array_literals() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("[]"),
+                expected_constants: vec![],
+                expected_instructions: vec![
+                    make(OpCode::OpArray, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("[1, 2, 3]"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpArray, vec![3]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("[1 + 2, 3 - 4, 5 * 6]"),
+                expected_constants: vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(4),
+                    Object::Integer(5),
+                    Object::Integer(6),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpSub, vec![]),
+                    make(OpCode::OpConstant, vec![4]),
+                    make(OpCode::OpConstant, vec![5]),
+                    make(OpCode::OpMult, vec![]),
+                    make(OpCode::OpArray, vec![3]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
