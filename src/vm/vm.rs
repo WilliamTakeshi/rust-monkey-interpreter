@@ -216,9 +216,6 @@ impl Vm {
                         }
                         _ => return Err(anyhow!("Trying to call a non-function")),
                     };
-                    dbg!(&self.current_frame().ip);
-                    dbg!(&self.current_frame().instructions().len() - 1);
-                    dbg!(&self.current_frame().instructions());
                 }
                 Ok(OpCode::OpReturnValue) => {
                     let return_value = self.pop();
@@ -226,6 +223,12 @@ impl Vm {
                     self.pop();
 
                     self.push(return_value)?;
+                }
+                Ok(OpCode::OpReturn) => {
+                    self.pop_frame();
+                    self.pop();
+
+                    self.push(Object::Null)?;
                 }
                 _ => todo!(),
             }
@@ -859,6 +862,34 @@ mod tests {
             VmTestCase {
                 input: "let earlyExit = fn() { return 99; return 100; }; earlyExit();".to_string(),
                 expected: vec![Object::Integer(99)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_functions_without_return_value() {
+        let tests = vec![
+            VmTestCase {
+                input: "let noReturn = fn() { }; noReturn();".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "let noReturn = fn() { }; let noReturnTwo = fn() { noReturn(); }; noReturn(); 1; noReturnTwo();".to_string(),
+                expected: vec![Object::Null, Object::Null],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_first_class_functions() {
+        let tests = vec![
+            VmTestCase {
+                input: "let returnsOne = fn() { 1; }; let returnsOneReturner = fn() { returnsOne; }; returnsOneReturner()();".to_string(),
+                expected: vec![Object::Integer(1)],
             },
         ];
 
