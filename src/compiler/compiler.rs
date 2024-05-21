@@ -255,6 +255,13 @@ impl Compiler {
 
                 Ok(())
             }
+            Expression::Call(function, _arguments) => {
+                self.compile_expression(*function)?;
+
+                self.emit(OpCode::OpCall, vec![]);
+
+                Ok(())
+            }
             _ => unimplemented!(),
         }
     }
@@ -1022,6 +1029,52 @@ mod tests {
                 make(OpCode::OpPop, vec![]),
             ],
         }];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_function_calls() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("fn() { 24 }();"),
+                expected_constants: vec![
+                    Object::Integer(24),
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpConstant, vec![0]), // The literal "24"
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                    },
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![1]), // The compiled function
+                    make(OpCode::OpCall, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("let noArg = fn() { 24 }; noArg();"),
+                expected_constants: vec![
+                    Object::Integer(24),
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpConstant, vec![0]), // The literal "24"
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                    },
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![1]), // The compiled function
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpCall, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
 
         run_compiler_tests(tests)
     }
