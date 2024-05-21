@@ -1,4 +1,7 @@
-use crate::ast::ast::{Block, Expression};
+use crate::{
+    ast::ast::{Block, Expression},
+    code::code::Instructions,
+};
 use core::hash::{Hash, Hasher};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -25,6 +28,9 @@ pub enum Object {
         parameters: Vec<Expression>,
         body: Block,
         env: Rc<RefCell<Environment>>,
+    },
+    CompiledFunction {
+        instructions: Instructions,
     },
 }
 
@@ -54,6 +60,7 @@ impl Object {
             Self::Hash { .. } => String::from("HASH"),
             Self::Quote { .. } => String::from("QUOTE"),
             Self::Macro { .. } => String::from("MACRO"),
+            Self::CompiledFunction { .. } => String::from("COMPILED_FUNCTION"),
         }
     }
 }

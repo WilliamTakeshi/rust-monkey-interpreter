@@ -25,6 +25,9 @@ pub enum OpCode {
     OpArray,
     OpHash,
     OpIndex,
+    OpCall,
+    OpReturnValue,
+    OpReturn,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -53,6 +56,9 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpArray as u8 => Ok(OpCode::OpArray),
             x if x == OpCode::OpHash as u8 => Ok(OpCode::OpHash),
             x if x == OpCode::OpIndex as u8 => Ok(OpCode::OpIndex),
+            x if x == OpCode::OpCall as u8 => Ok(OpCode::OpCall),
+            x if x == OpCode::OpReturnValue as u8 => Ok(OpCode::OpReturnValue),
+            x if x == OpCode::OpReturn as u8 => Ok(OpCode::OpReturn),
             _ => Err(()),
         }
     }
@@ -193,6 +199,18 @@ impl OpCode {
             },
             &OpCode::OpIndex => Definition {
                 name: String::from("OpIndex"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpCall => Definition {
+                name: String::from("OpCall"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpReturnValue => Definition {
+                name: String::from("OpReturnValue"),
+                operand_widths: vec![],
+            },
+            &OpCode::OpReturn => Definition {
+                name: String::from("OpReturn"),
                 operand_widths: vec![],
             },
         }
