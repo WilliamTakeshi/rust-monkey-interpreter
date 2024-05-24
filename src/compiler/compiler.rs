@@ -246,8 +246,18 @@ impl Compiler {
 
                 Ok(())
             }
-            Expression::FnLiteral(_, body) => {
+            Expression::FnLiteral(params, body) => {
                 self.enter_scope();
+
+                for param in params.clone() {
+                    match param {
+                        Expression::Ident(param) => {
+                            self.symbol_table.borrow_mut().define(param);
+                        }
+                        _ => panic!("Function parameter should be a Identifier, got {:?}", param),
+                    }
+                }
+
                 self.compile_block(body)?;
 
                 if self.last_instruction_is(OpCode::OpPop) {
@@ -263,16 +273,21 @@ impl Compiler {
                 let constant = self.add_constant(Object::CompiledFunction {
                     instructions,
                     num_locals,
+                    num_params: params.len() as u16,
                 });
 
                 self.emit(OpCode::OpConstant, vec![constant]);
 
                 Ok(())
             }
-            Expression::Call(function, _arguments) => {
+            Expression::Call(function, arguments) => {
                 self.compile_expression(*function)?;
 
-                self.emit(OpCode::OpCall, vec![]);
+                for arg in arguments.clone() {
+                    self.compile_expression(arg)?;
+                }
+
+                self.emit(OpCode::OpCall, vec![arguments.len() as u16]);
 
                 Ok(())
             }
@@ -408,7 +423,14 @@ mod tests {
             compiler.compile_program(program);
 
             let bytecode = compiler.bytecode();
-            assert_eq!(bytecode.constants.len(), expected_constants.len());
+            dbg!(&bytecode);
+            assert_eq!(
+                bytecode.constants.len(),
+                expected_constants.len(),
+                "constants length mismatch, got: {:?}, want: {:?}",
+                bytecode.constants,
+                expected_constants
+            );
 
             for (i, constant) in expected_constants.iter().enumerate() {
                 assert_eq!(
@@ -428,11 +450,12 @@ mod tests {
             concatted.len(),
             actual.len(),
             "instructions length mismatch, want: {:?}, got: {:?}",
-            string(actual),
             string(concatted),
+            string(actual),
         );
-        dbg!(string(concatted.clone()));
-        dbg!(string(actual.clone()));
+
+        dbg!(&concatted);
+        dbg!(&actual);
 
         for (i, instr) in concatted.iter().enumerate() {
             assert_eq!(
@@ -921,6 +944,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -942,6 +966,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -963,6 +988,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -1066,6 +1092,7 @@ mod tests {
             expected_constants: vec![Object::CompiledFunction {
                 instructions: make(OpCode::OpReturn, vec![]),
                 num_locals: 0,
+                num_params: 0,
             }],
             expected_instructions: vec![
                 make(OpCode::OpConstant, vec![0]),
@@ -1090,11 +1117,12 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![1]), // The compiled function
-                    make(OpCode::OpCall, vec![]),
+                    make(OpCode::OpCall, vec![0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1109,13 +1137,120 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![1]), // The compiled function
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
-                    make(OpCode::OpCall, vec![]),
+                    make(OpCode::OpCall, vec![0]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("let oneArg = fn(a) { }; oneArg(24);"),
+                expected_constants: vec![
+                    Object::CompiledFunction {
+                        instructions: [make(OpCode::OpReturn, vec![])].concat(),
+                        num_locals: 1,
+                        num_params: 1,
+                    },
+                    Object::Integer(24),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpCall, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from(
+                    "
+                let manyArg = fn(a, b, c) { };
+                manyArg(24, 25, 26);
+                ",
+                ),
+                expected_constants: vec![
+                    Object::CompiledFunction {
+                        instructions: [make(OpCode::OpReturn, vec![])].concat(),
+                        num_locals: 3,
+                        num_params: 3,
+                    },
+                    Object::Integer(24),
+                    Object::Integer(25),
+                    Object::Integer(26),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpCall, vec![3]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("let oneArg = fn(a) { a }; oneArg(24);"),
+                expected_constants: vec![
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpGetLocal, vec![0]),
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                        num_locals: 1,
+                        num_params: 1,
+                    },
+                    Object::Integer(24),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpCall, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from(
+                    "
+                let manyArg = fn(a, b, c) { a; b; c };
+                manyArg(24, 25, 26);
+                ",
+                ),
+                expected_constants: vec![
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpGetLocal, vec![0]),
+                            make(OpCode::OpPop, vec![]),
+                            make(OpCode::OpGetLocal, vec![1]),
+                            make(OpCode::OpPop, vec![]),
+                            make(OpCode::OpGetLocal, vec![2]),
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                        num_locals: 3,
+                        num_params: 3,
+                    },
+                    Object::Integer(24),
+                    Object::Integer(25),
+                    Object::Integer(26),
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpGetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpConstant, vec![3]),
+                    make(OpCode::OpCall, vec![3]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1138,6 +1273,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 0,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -1160,6 +1296,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 1,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -1185,6 +1322,7 @@ mod tests {
                         ]
                         .concat(),
                         num_locals: 2,
+                        num_params: 0,
                     },
                 ],
                 expected_instructions: vec![

@@ -1,3 +1,4 @@
+use core::num;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -39,6 +40,7 @@ impl Vm {
         let main_fn = Object::CompiledFunction {
             instructions: bytecode.instructions,
             num_locals: 0,
+            num_params: 0,
         };
         let main_frame = Frame::new(main_fn, 0);
 
@@ -71,6 +73,7 @@ impl Vm {
                 Object::CompiledFunction {
                     instructions: bytecode.instructions,
                     num_locals: 0,
+                    num_params: 0,
                 },
                 0,
             )],
@@ -212,16 +215,10 @@ impl Vm {
                     self.execute_index_expression(left, index)?;
                 }
                 Ok(OpCode::OpCall) => {
-                    let function = self.stack[self.sp - 1].clone();
+                    let num_args = ins[ip + 1];
 
-                    match &function {
-                        Object::CompiledFunction { num_locals, .. } => {
-                            let frame = Frame::new(function.clone(), self.sp);
-                            self.push_frame(frame.clone());
-                            self.sp = frame.base_pointer + *num_locals as usize;
-                        }
-                        _ => return Err(anyhow!("Trying to call a non-function")),
-                    };
+                    self.current_frame().ip += 1;
+                    self.call_function(num_args as usize)?;
                 }
                 Ok(OpCode::OpReturnValue) => {
                     let return_value = self.pop();
@@ -237,7 +234,7 @@ impl Vm {
                     self.push(Object::Null)?;
                 }
                 Ok(OpCode::OpSetLocal) => {
-                    let local_index = u8::from_be_bytes(ins[ip + 1..=ip + 1].try_into().unwrap());
+                    let local_index = ins[ip + 1];
                     self.current_frame().ip += 1;
 
                     let frame = self.current_frame().clone();
@@ -246,8 +243,7 @@ impl Vm {
                     self.stack[frame.base_pointer + local_index as usize] = obj;
                 }
                 Ok(OpCode::OpGetLocal) => {
-                    // TODO: do it need to be from be bytes?
-                    let local_index = u8::from_be_bytes(ins[ip + 1..=ip + 1].try_into().unwrap());
+                    let local_index = ins[ip + 1];
 
                     self.current_frame().ip += 1;
 
@@ -258,6 +254,32 @@ impl Vm {
                 _ => todo!(),
             }
         }
+        Ok(())
+    }
+
+    fn call_function(&mut self, num_args: usize) -> Result<()> {
+        let function = self.stack[self.sp - 1 - num_args].clone();
+
+        match &function {
+            Object::CompiledFunction {
+                num_locals,
+                num_params,
+                ..
+            } => {
+                if *num_params != num_args as u16 {
+                    return Err(anyhow!(
+                        "wrong number of arguments. want={}, got={}",
+                        num_params,
+                        num_args
+                    ));
+                }
+                let frame = Frame::new(function.clone(), self.sp - num_args);
+                self.push_frame(frame.clone());
+                self.sp = frame.base_pointer + *num_locals as usize;
+            }
+            _ => return Err(anyhow!("Trying to call a non-function")),
+        };
+
         Ok(())
     }
 
@@ -476,6 +498,21 @@ mod tests {
 
             let stack_element = vm.last_popped_stack_elem();
             assert_eq!(stack_element, expected[0]);
+        }
+    }
+
+    fn run_vm_tests_expect_error(tests: Vec<VmTestCase>) {
+        for VmTestCase { input, expected } in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut compiler = Compiler::new();
+            let _ = compiler.compile_program(program);
+
+            let mut vm = Vm::new(compiler.bytecode());
+            let res = vm.run();
+
+            assert!(res.is_err());
         }
     }
 
@@ -980,5 +1017,94 @@ mod tests {
         ];
 
         run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_functions_with_arguments_and_bindings() {
+        let tests = vec![
+            VmTestCase {
+                input: "
+                let identity = fn(a) { a; };
+                identity(4);"
+                    .to_string(),
+                expected: vec![Object::Integer(4)],
+            },
+            VmTestCase {
+                input: "
+                let sum = fn(a, b) { a + b; };
+                sum(1, 2);"
+                    .to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "
+                let sum = fn(a, b) {
+                    let c = a + b;
+                    c;
+                };
+                sum(1, 2);"
+                    .to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "
+                let sum = fn(a, b) {
+                    let c = a + b;
+                    c;
+                };
+                sum(1, 2) + sum(3, 4);"
+                    .to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "
+                let sum = fn(a, b) {
+                    let c = a + b;
+                    c;
+                };
+                let outer = fn() {
+                    sum(1, 2) + sum(3, 4);
+                };
+                outer();"
+                    .to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "
+                let globalNum = 10;
+                let sum = fn(a, b) {
+                    let c = a + b;
+                    c + globalNum;
+                };
+                let outer = fn() {
+                    sum(1, 2) + sum(3, 4) + globalNum;
+                };
+                outer() + globalNum;"
+                    .to_string(),
+                expected: vec![Object::Integer(50)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_functions_with_wrong_arguments() {
+        let tests = vec![
+            VmTestCase {
+                input: "fn() { 1; }(1);".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: "fn(a) { a; }();".to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: "fn(a, b) { a + b; }(1);".to_string(),
+                expected: vec![Object::Null],
+            },
+        ];
+
+        run_vm_tests_expect_error(tests);
     }
 }

@@ -67,6 +67,8 @@ impl TryFrom<u8> for OpCode {
         }
     }
 }
+
+#[derive(Debug)]
 pub struct Definition {
     name: String,
     operand_widths: Vec<u8>,
@@ -207,7 +209,7 @@ impl OpCode {
             },
             &OpCode::OpCall => Definition {
                 name: String::from("OpCall"),
-                operand_widths: vec![],
+                operand_widths: vec![1],
             },
             &OpCode::OpReturnValue => Definition {
                 name: String::from("OpReturnValue"),
