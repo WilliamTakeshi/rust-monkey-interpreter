@@ -8,6 +8,8 @@ use anyhow::{anyhow, Result};
 
 use crate::compiler::symbol_table::SymbolTable;
 
+use super::symbol_table::GLOBALSCOPE;
+
 #[derive(Debug, Clone, PartialEq)]
 struct EmittedInstruction {
     opcode: OpCode,
@@ -92,7 +94,12 @@ impl Compiler {
 
                 let symbol = self.symbol_table.borrow_mut().define(ident);
 
-                self.emit(OpCode::OpSetGlobal, vec![symbol.index]);
+                if symbol.scope == GLOBALSCOPE {
+                    self.emit(OpCode::OpSetGlobal, vec![symbol.index]);
+                } else {
+                    self.emit(OpCode::OpSetLocal, vec![symbol.index]);
+                }
+
                 Ok(())
             }
             Statement::Return(expr) => {
@@ -100,7 +107,6 @@ impl Compiler {
                 self.emit(OpCode::OpReturnValue, vec![]);
                 Ok(())
             }
-            _ => unimplemented!(),
         }
     }
 
@@ -196,7 +202,11 @@ impl Compiler {
                 }
 
                 if let Some(symbol) = maybe_symbol {
-                    self.emit(OpCode::OpGetGlobal, vec![symbol.index]);
+                    if symbol.scope == GLOBALSCOPE {
+                        self.emit(OpCode::OpGetGlobal, vec![symbol.index]);
+                    } else {
+                        self.emit(OpCode::OpGetLocal, vec![symbol.index]);
+                    }
                     Ok(())
                 } else {
                     Err(anyhow!("undefined variable {}", ident))
@@ -248,8 +258,12 @@ impl Compiler {
                     self.emit(OpCode::OpReturn, vec![]);
                 }
 
+                let num_locals = self.symbol_table.borrow().num_definitions;
                 let instructions = self.leave_scope();
-                let constant = self.add_constant(Object::CompiledFunction { instructions });
+                let constant = self.add_constant(Object::CompiledFunction {
+                    instructions,
+                    num_locals,
+                });
 
                 self.emit(OpCode::OpConstant, vec![constant]);
 
@@ -347,12 +361,19 @@ impl Compiler {
 
         self.scopes.push(scope);
         self.scope_index += 1;
+
+        let outer = self.symbol_table.borrow().clone();
+
+        self.symbol_table = Rc::new(RefCell::new(SymbolTable::new_enclosed(outer)));
     }
 
     fn leave_scope(&mut self) -> Instructions {
         let instructions = self.scopes[self.scope_index].instructions.clone();
         self.scopes.pop();
         self.scope_index -= 1;
+
+        let outer = self.symbol_table.borrow().outer.clone().unwrap();
+        self.symbol_table = Rc::new(RefCell::new(*outer));
 
         instructions
     }
@@ -387,12 +408,14 @@ mod tests {
             compiler.compile_program(program);
 
             let bytecode = compiler.bytecode();
-            dbg!(&bytecode.constants);
-            dbg!(&expected_constants);
             assert_eq!(bytecode.constants.len(), expected_constants.len());
 
             for (i, constant) in expected_constants.iter().enumerate() {
-                assert_eq!(bytecode.constants[i], *constant);
+                assert_eq!(
+                    bytecode.constants[i], *constant,
+                    "bytecode mismatch, got {:?}, want {:?}",
+                    bytecode.constants[i], *constant
+                );
             }
             test_instructions(expected_instructions, bytecode.instructions);
         }
@@ -405,8 +428,8 @@ mod tests {
             concatted.len(),
             actual.len(),
             "instructions length mismatch, want: {:?}, got: {:?}",
+            string(actual),
             string(concatted),
-            string(actual)
         );
         dbg!(string(concatted.clone()));
         dbg!(string(actual.clone()));
@@ -897,6 +920,7 @@ mod tests {
                             make(OpCode::OpReturnValue, vec![]),
                         ]
                         .concat(),
+                        num_locals: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -917,6 +941,7 @@ mod tests {
                             make(OpCode::OpReturnValue, vec![]),
                         ]
                         .concat(),
+                        num_locals: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -937,6 +962,7 @@ mod tests {
                             make(OpCode::OpReturnValue, vec![]),
                         ]
                         .concat(),
+                        num_locals: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -959,15 +985,16 @@ mod tests {
         );
 
         compiler.emit(OpCode::OpMult, vec![]);
-        compiler.enter_scope();
+        let global_symbol_table = compiler.symbol_table.clone();
 
+        compiler.enter_scope();
         assert_eq!(
             compiler.scope_index, 1,
             "scope index wrong. got={}, want={}",
             compiler.scope_index, 1
         );
-        compiler.emit(OpCode::OpSub, vec![]);
 
+        compiler.emit(OpCode::OpSub, vec![]);
         assert_eq!(
             compiler.scopes[compiler.scope_index].instructions.len(),
             1,
@@ -975,7 +1002,6 @@ mod tests {
             compiler.scopes[compiler.scope_index].instructions.len(),
             1
         );
-
         assert_eq!(
             compiler.scopes[compiler.scope_index].last_instruction,
             Some(EmittedInstruction {
@@ -983,12 +1009,28 @@ mod tests {
                 position: 0
             }),
         );
+        assert_eq!(
+            compiler.symbol_table.borrow().outer,
+            Some(Box::new(global_symbol_table.borrow().clone())),
+            "compiler did not enclose symbol table"
+        );
 
         compiler.leave_scope();
         assert_eq!(
             compiler.scope_index, 0,
             "scope index wrong. got={}, want={}",
             compiler.scope_index, 0
+        );
+        assert_eq!(
+            compiler.symbol_table.borrow().clone(),
+            global_symbol_table.borrow().clone(),
+            "compiler did not restore global symbol table"
+        );
+
+        assert_eq!(
+            compiler.symbol_table.borrow().outer,
+            None,
+            "compiler modified global symbol table incorrectly"
         );
 
         compiler.emit(OpCode::OpAdd, vec![]);
@@ -1023,6 +1065,7 @@ mod tests {
             input: String::from("fn() { }"),
             expected_constants: vec![Object::CompiledFunction {
                 instructions: make(OpCode::OpReturn, vec![]),
+                num_locals: 0,
             }],
             expected_instructions: vec![
                 make(OpCode::OpConstant, vec![0]),
@@ -1046,6 +1089,7 @@ mod tests {
                             make(OpCode::OpReturnValue, vec![]),
                         ]
                         .concat(),
+                        num_locals: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -1064,6 +1108,7 @@ mod tests {
                             make(OpCode::OpReturnValue, vec![]),
                         ]
                         .concat(),
+                        num_locals: 0,
                     },
                 ],
                 expected_instructions: vec![
@@ -1071,6 +1116,79 @@ mod tests {
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpCall, vec![]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+
+    #[test]
+    fn test_let_statement_scopes() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("let num = 55; fn() { num }"),
+                expected_constants: vec![
+                    Object::Integer(55),
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpGetGlobal, vec![0]),
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                        num_locals: 0,
+                    },
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpSetGlobal, vec![0]),
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("fn() { let num = 55; num }"),
+                expected_constants: vec![
+                    Object::Integer(55),
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpConstant, vec![0]),
+                            make(OpCode::OpSetLocal, vec![0]),
+                            make(OpCode::OpGetLocal, vec![0]),
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                        num_locals: 1,
+                    },
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("fn() { let a = 55; let b = 77; a + b}"),
+                expected_constants: vec![
+                    Object::Integer(55),
+                    Object::Integer(77),
+                    Object::CompiledFunction {
+                        instructions: [
+                            make(OpCode::OpConstant, vec![0]),
+                            make(OpCode::OpSetLocal, vec![0]),
+                            make(OpCode::OpConstant, vec![1]),
+                            make(OpCode::OpSetLocal, vec![1]),
+                            make(OpCode::OpGetLocal, vec![0]),
+                            make(OpCode::OpGetLocal, vec![1]),
+                            make(OpCode::OpAdd, vec![]),
+                            make(OpCode::OpReturnValue, vec![]),
+                        ]
+                        .concat(),
+                        num_locals: 2,
+                    },
+                ],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![2]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

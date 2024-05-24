@@ -38,8 +38,9 @@ impl Vm {
     pub fn new(bytecode: Bytecode) -> Self {
         let main_fn = Object::CompiledFunction {
             instructions: bytecode.instructions,
+            num_locals: 0,
         };
-        let main_frame = Frame::new(main_fn);
+        let main_frame = Frame::new(main_fn, 0);
 
         let frames = vec![main_frame];
 
@@ -66,9 +67,13 @@ impl Vm {
             sp: 0,
             globals: s,
 
-            frames: vec![Frame::new(Object::CompiledFunction {
-                instructions: bytecode.instructions,
-            })],
+            frames: vec![Frame::new(
+                Object::CompiledFunction {
+                    instructions: bytecode.instructions,
+                    num_locals: 0,
+                },
+                0,
+            )],
             frames_index: 1,
         }
     }
@@ -82,9 +87,9 @@ impl Vm {
         self.frames_index += 1;
     }
 
-    fn pop_frame(&mut self) {
-        self.frames.pop();
+    fn pop_frame(&mut self) -> Frame {
         self.frames_index -= 1;
+        self.frames.pop().unwrap()
     }
 
     pub fn stack_top(&self) -> &Object {
@@ -210,25 +215,45 @@ impl Vm {
                     let function = self.stack[self.sp - 1].clone();
 
                     match &function {
-                        Object::CompiledFunction { instructions } => {
-                            let frame = Frame::new(function);
-                            self.push_frame(frame);
+                        Object::CompiledFunction { num_locals, .. } => {
+                            let frame = Frame::new(function.clone(), self.sp);
+                            self.push_frame(frame.clone());
+                            self.sp = frame.base_pointer + *num_locals as usize;
                         }
                         _ => return Err(anyhow!("Trying to call a non-function")),
                     };
                 }
                 Ok(OpCode::OpReturnValue) => {
                     let return_value = self.pop();
-                    self.pop_frame();
-                    self.pop();
+                    let frame = self.pop_frame();
+                    self.sp = frame.base_pointer - 1;
 
                     self.push(return_value)?;
                 }
                 Ok(OpCode::OpReturn) => {
-                    self.pop_frame();
-                    self.pop();
+                    let frame = self.pop_frame();
+                    self.sp = frame.base_pointer - 1;
 
                     self.push(Object::Null)?;
+                }
+                Ok(OpCode::OpSetLocal) => {
+                    let local_index = u8::from_be_bytes(ins[ip + 1..=ip + 1].try_into().unwrap());
+                    self.current_frame().ip += 1;
+
+                    let frame = self.current_frame().clone();
+                    let obj = self.pop();
+
+                    self.stack[frame.base_pointer + local_index as usize] = obj;
+                }
+                Ok(OpCode::OpGetLocal) => {
+                    // TODO: do it need to be from be bytes?
+                    let local_index = u8::from_be_bytes(ins[ip + 1..=ip + 1].try_into().unwrap());
+
+                    self.current_frame().ip += 1;
+
+                    let frame = self.current_frame().clone();
+
+                    self.push(self.stack[frame.base_pointer + local_index as usize].clone())?;
                 }
                 _ => todo!(),
             }
@@ -890,6 +915,67 @@ mod tests {
             VmTestCase {
                 input: "let returnsOne = fn() { 1; }; let returnsOneReturner = fn() { returnsOne; }; returnsOneReturner()();".to_string(),
                 expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: "
+                    let returnsOneReturner = fn() {
+                        let returnsOne = fn() { 1; };
+                        returnsOne;
+                    };
+                    returnsOneReturner()();".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn test_calling_functions_with_bindings() {
+        let tests = vec![
+            VmTestCase {
+                input: "let one = fn() { let one = 1; one }; one();".to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input:
+                    "let oneAndTwo = fn() { let one = 1; let two = 2; one + two; }; oneAndTwo();"
+                        .to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: "
+                let oneAndTwo = fn() { let one = 1; let two = 2; one + two; };
+                let threeAndFour = fn() { let three = 3; let four = 4; three + four; };
+                oneAndTwo() + threeAndFour();
+                "
+                .to_string(),
+                expected: vec![Object::Integer(10)],
+            },
+            VmTestCase {
+                input: "
+                let firstFoobar = fn() { let foobar = 50; foobar; };
+                let secondFoobar = fn() { let foobar = 100; foobar; };
+                firstFoobar() + secondFoobar();
+                "
+                .to_string(),
+                expected: vec![Object::Integer(150)],
+            },
+            VmTestCase {
+                input: "
+                let globalSeed = 50;
+                let minusOne = fn() {
+                let num = 1;
+                globalSeed - num;
+                }
+                let minusTwo = fn() {
+                let num = 2;
+                globalSeed - num;
+                }
+                minusOne() + minusTwo();
+                "
+                .to_string(),
+                expected: vec![Object::Integer(97)],
             },
         ];
 

@@ -28,6 +28,8 @@ pub enum OpCode {
     OpCall = 21,
     OpReturnValue = 22,
     OpReturn = 23,
+    OpGetLocal = 24,
+    OpSetLocal = 25,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -59,6 +61,8 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpCall as u8 => Ok(OpCode::OpCall),
             x if x == OpCode::OpReturnValue as u8 => Ok(OpCode::OpReturnValue),
             x if x == OpCode::OpReturn as u8 => Ok(OpCode::OpReturn),
+            x if x == OpCode::OpGetLocal as u8 => Ok(OpCode::OpGetLocal),
+            x if x == OpCode::OpSetLocal as u8 => Ok(OpCode::OpSetLocal),
             _ => Err(()),
         }
     }
@@ -213,6 +217,14 @@ impl OpCode {
                 name: String::from("OpReturn"),
                 operand_widths: vec![],
             },
+            &OpCode::OpGetLocal => Definition {
+                name: String::from("OpGetLocal"),
+                operand_widths: vec![1],
+            },
+            &OpCode::OpSetLocal => Definition {
+                name: String::from("OpSetLocal"),
+                operand_widths: vec![1],
+            },
         }
     }
 }
@@ -252,6 +264,9 @@ pub fn make(op: OpCode, operands: Vec<u16>) -> Vec<u8> {
                 instruction.push((operand >> 8) as u8);
                 instruction.push(*operand as u8);
             }
+            1 => {
+                instruction.push(*operand as u8);
+            }
             _ => unimplemented!(),
         }
     }
@@ -272,6 +287,11 @@ mod tests {
                 vec![OpCode::OpConstant as u8, 255, 254],
             ),
             (OpCode::OpAdd, vec![], vec![OpCode::OpAdd as u8]),
+            (
+                OpCode::OpGetLocal,
+                vec![255],
+                vec![OpCode::OpGetLocal as u8, 255],
+            ),
         ];
 
         for (op, operands, expected) in tests {
@@ -290,6 +310,7 @@ mod tests {
         let tests = [
             (OpCode::OpConstant, vec![1], 2),
             (OpCode::OpConstant, vec![65535], 2),
+            (OpCode::OpGetLocal, vec![255], 1),
         ];
 
         for (op, operands, bytes_read) in tests {
@@ -320,12 +341,14 @@ mod tests {
             (
                 vec![
                     make(OpCode::OpAdd, vec![]),
+                    make(OpCode::OpGetLocal, vec![1]),
                     make(OpCode::OpConstant, vec![2]),
                     make(OpCode::OpConstant, vec![65535]),
                 ],
                 "0000 OpAdd
-0001 OpConstant 2
-0004 OpConstant 65535\n"
+0001 OpGetLocal 1
+0003 OpConstant 2
+0006 OpConstant 65535\n"
                     .to_string(),
             ),
         ];
