@@ -113,9 +113,6 @@ impl Vm {
             let ins = self.current_frame().instructions();
             let op = ins[ip];
 
-            dbg!(&ip);
-            dbg!(op);
-
             match op.try_into() {
                 Ok(OpCode::OpConstant) => {
                     let const_index = u16::from_be_bytes(ins[ip + 1..=ip + 2].try_into().unwrap());
@@ -398,12 +395,8 @@ impl Vm {
     }
 
     fn execute_binary_operation(&mut self, op: OpCode) -> Result<()> {
-        dbg!("aaaaa");
-
         let right = self.pop();
         let left = self.pop();
-
-        dbg!(&op, &left, &right);
 
         match (left, right) {
             (Object::Integer(left), Object::Integer(right)) => {
@@ -502,7 +495,7 @@ mod tests {
     }
 
     fn run_vm_tests_expect_error(tests: Vec<VmTestCase>) {
-        for VmTestCase { input, expected } in tests {
+        for VmTestCase { input, .. } in tests {
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();

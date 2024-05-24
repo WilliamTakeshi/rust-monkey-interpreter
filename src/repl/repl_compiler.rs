@@ -13,7 +13,7 @@ const PROMPT: &str = ">> ";
 
 pub fn start() -> Result<()> {
     let mut constants: Vec<Object> = vec![];
-    let mut globals = Rc::new(RefCell::new([NULL; GLOBAL_SIZE]));
+    let globals = Rc::new(RefCell::new([NULL; GLOBAL_SIZE]));
     let symbol_table = Rc::new(RefCell::new(SymbolTable::new()));
     loop {
         // Print prompt and flush to write it to console

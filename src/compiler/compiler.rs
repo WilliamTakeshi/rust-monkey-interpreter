@@ -20,7 +20,7 @@ struct EmittedInstruction {
 pub struct Compiler {
     constants: Vec<Object>,
 
-    symbol_table: Rc<RefCell<SymbolTable>>,
+    pub symbol_table: Rc<RefCell<SymbolTable>>,
 
     scopes: Vec<CompilationScope>,
     scope_index: usize,
@@ -377,7 +377,7 @@ impl Compiler {
         self.scopes.push(scope);
         self.scope_index += 1;
 
-        let outer = self.symbol_table.borrow().clone();
+        let outer = self.symbol_table.clone();
 
         self.symbol_table = Rc::new(RefCell::new(SymbolTable::new_enclosed(outer)));
     }
@@ -388,7 +388,7 @@ impl Compiler {
         self.scope_index -= 1;
 
         let outer = self.symbol_table.borrow().outer.clone().unwrap();
-        self.symbol_table = Rc::new(RefCell::new(*outer));
+        self.symbol_table = outer;
 
         instructions
     }
@@ -423,7 +423,6 @@ mod tests {
             compiler.compile_program(program);
 
             let bytecode = compiler.bytecode();
-            dbg!(&bytecode);
             assert_eq!(
                 bytecode.constants.len(),
                 expected_constants.len(),
@@ -1037,7 +1036,7 @@ mod tests {
         );
         assert_eq!(
             compiler.symbol_table.borrow().outer,
-            Some(Box::new(global_symbol_table.borrow().clone())),
+            Some(global_symbol_table.clone()),
             "compiler did not enclose symbol table"
         );
 

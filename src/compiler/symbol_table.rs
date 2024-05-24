@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 type SymbolScope = String;
 
@@ -14,7 +14,7 @@ pub struct Symbol {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SymbolTable {
-    pub outer: Option<Box<SymbolTable>>,
+    pub outer: Option<Rc<RefCell<SymbolTable>>>,
 
     store: HashMap<String, Symbol>,
     pub num_definitions: u16,
@@ -29,9 +29,9 @@ impl SymbolTable {
         }
     }
 
-    pub fn new_enclosed(outer: SymbolTable) -> Self {
+    pub fn new_enclosed(outer: Rc<RefCell<SymbolTable>>) -> Self {
         Self {
-            outer: Some(Box::new(outer)),
+            outer: Some(outer),
             store: HashMap::new(),
             num_definitions: 0,
         }
@@ -62,7 +62,7 @@ impl SymbolTable {
 
         if obj.is_none() && self.outer.is_some() {
             let outer = self.outer.as_ref().unwrap();
-            return outer.resolve(name);
+            return outer.borrow().resolve(name);
         }
 
         obj.cloned()
@@ -126,11 +126,11 @@ mod tests {
             ),
         ]);
 
-        let mut global = SymbolTable::new();
-        let a = global.define("a".to_string());
+        let mut global = Rc::new(RefCell::new(SymbolTable::new()));
+        let a = global.borrow_mut().define("a".to_string());
         assert_eq!(&a, expected.get("a").unwrap());
 
-        let b = global.define("b".to_string());
+        let b = global.borrow_mut().define("b".to_string());
         assert_eq!(&b, expected.get("b").unwrap());
 
         let mut first_local = SymbolTable::new_enclosed(global);
@@ -140,7 +140,7 @@ mod tests {
         let d = first_local.define("d".to_string());
         assert_eq!(&d, expected.get("d").unwrap());
 
-        let mut second_local = SymbolTable::new_enclosed(first_local);
+        let mut second_local = SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local)));
         let e = second_local.define("e".to_string());
         assert_eq!(&e, expected.get("e").unwrap());
 
@@ -182,10 +182,10 @@ mod tests {
 
     #[test]
     fn test_resolve_local() {
-        let mut global = SymbolTable::new();
+        let mut global = Rc::new(RefCell::new(SymbolTable::new()));
 
-        global.define("a".to_string());
-        global.define("b".to_string());
+        global.borrow_mut().define("a".to_string());
+        global.borrow_mut().define("b".to_string());
 
         let mut local = SymbolTable::new_enclosed(global);
         local.define("c".to_string());
@@ -235,16 +235,17 @@ mod tests {
 
     #[test]
     fn test_resolve_nested_local() {
-        let mut global = SymbolTable::new();
+        let mut global = Rc::new(RefCell::new(SymbolTable::new()));
 
-        global.define("a".to_string());
-        global.define("b".to_string());
+        global.borrow_mut().define("a".to_string());
+        global.borrow_mut().define("b".to_string());
 
         let mut first_local = SymbolTable::new_enclosed(global);
         first_local.define("c".to_string());
         first_local.define("d".to_string());
 
-        let mut second_local = SymbolTable::new_enclosed(first_local.clone());
+        let mut second_local =
+            SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local.clone())));
         second_local.define("e".to_string());
         second_local.define("f".to_string());
 
