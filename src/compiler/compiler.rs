@@ -3,12 +3,13 @@ use std::rc::Rc;
 
 use crate::ast::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
+use crate::object::buildin::{get_builtin_functions, BUILTINS};
 use crate::object::object::Object;
 use anyhow::{anyhow, Result};
 
 use crate::compiler::symbol_table::SymbolTable;
 
-use super::symbol_table::GLOBALSCOPE;
+use super::symbol_table::{Symbol, BUILTINSCOPE, GLOBALSCOPE, LOCALSCOPE};
 
 #[derive(Debug, Clone, PartialEq)]
 struct EmittedInstruction {
@@ -51,9 +52,17 @@ impl CompilationScope {
 
 impl Compiler {
     pub fn new() -> Self {
+        let symbol_table = Rc::new(RefCell::new(SymbolTable::new()));
+
+        for (idx, name) in BUILTINS.iter().enumerate() {
+            symbol_table
+                .borrow_mut()
+                .define_builtin(idx as u16, name.to_string());
+        }
+
         Compiler {
             constants: vec![],
-            symbol_table: Rc::new(RefCell::new(SymbolTable::new())),
+            symbol_table: symbol_table,
             scopes: vec![CompilationScope::new()],
             scope_index: 0,
         }
@@ -202,11 +211,7 @@ impl Compiler {
                 }
 
                 if let Some(symbol) = maybe_symbol {
-                    if symbol.scope == GLOBALSCOPE {
-                        self.emit(OpCode::OpGetGlobal, vec![symbol.index]);
-                    } else {
-                        self.emit(OpCode::OpGetLocal, vec![symbol.index]);
-                    }
+                    self.load_symbol(symbol);
                     Ok(())
                 } else {
                     Err(anyhow!("undefined variable {}", ident))
@@ -391,6 +396,15 @@ impl Compiler {
         self.symbol_table = outer;
 
         instructions
+    }
+
+    fn load_symbol(&mut self, s: Symbol) {
+        match s.scope.as_str() {
+            GLOBALSCOPE => self.emit(OpCode::OpGetGlobal, vec![s.index]),
+            LOCALSCOPE => self.emit(OpCode::OpGetLocal, vec![s.index]),
+            BUILTINSCOPE => self.emit(OpCode::OpGetBuiltin, vec![s.index]),
+            _ => unreachable!("Invalid scope"),
+        };
     }
 }
 
@@ -1326,6 +1340,46 @@ mod tests {
                 ],
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+        ];
+
+        run_compiler_tests(tests)
+    }
+    #[test]
+    fn test_builtins() {
+        let tests = vec![
+            CompilerTestCase {
+                input: String::from("len([]); push([], 1);"),
+                expected_constants: vec![Object::Integer(1)],
+                expected_instructions: vec![
+                    make(OpCode::OpGetBuiltin, vec![0]),
+                    make(OpCode::OpArray, vec![0]),
+                    make(OpCode::OpCall, vec![1]),
+                    make(OpCode::OpPop, vec![]),
+                    make(OpCode::OpGetBuiltin, vec![5]),
+                    make(OpCode::OpArray, vec![0]),
+                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpCall, vec![2]),
+                    make(OpCode::OpPop, vec![]),
+                ],
+            },
+            CompilerTestCase {
+                input: String::from("fn() { len([]) }"),
+                expected_constants: vec![Object::CompiledFunction {
+                    instructions: [
+                        make(OpCode::OpGetBuiltin, vec![0]),
+                        make(OpCode::OpArray, vec![0]),
+                        make(OpCode::OpCall, vec![1]),
+                        make(OpCode::OpReturnValue, vec![]),
+                    ]
+                    .concat(),
+                    num_locals: 0,
+                    num_params: 0,
+                }],
+                expected_instructions: vec![
+                    make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

@@ -4,6 +4,8 @@ use std::collections::HashMap;
 
 pub type BuildinFunction = fn(Vec<Object>) -> Object;
 
+pub const BUILTINS: [&str; 6] = ["len", "first", "last", "rest", "puts", "push"];
+
 pub fn get_builtin_functions() -> HashMap<String, Object> {
     HashMap::from([
         create_buildin("len", 1, builtin_len),
@@ -77,7 +79,7 @@ fn builtin_push(input: Vec<Object>) -> Object {
             Object::Array(arr)
         }
         _ => Object::Err(format!(
-            "argument to 'last' not supported, got {}",
+            "argument to 'push' not supported, got {}",
             input_object.obj_type()
         )),
     }

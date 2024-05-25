@@ -4,6 +4,7 @@ type SymbolScope = String;
 
 pub const GLOBALSCOPE: &str = "GLOBAL";
 pub const LOCALSCOPE: &str = "LOCAL";
+pub const BUILTINSCOPE: &str = "BUILTIN";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
@@ -53,6 +54,18 @@ impl SymbolTable {
 
         self.store.insert(name, symbol.clone());
         self.num_definitions += 1;
+
+        symbol
+    }
+
+    pub fn define_builtin(&mut self, index: u16, name: String) -> Symbol {
+        let symbol = Symbol {
+            name: name.clone(),
+            scope: BUILTINSCOPE.to_string(),
+            index,
+        };
+
+        self.store.insert(name, symbol.clone());
 
         symbol
     }
@@ -331,6 +344,51 @@ mod tests {
                 let result = local.resolve(&symbol.name);
                 assert!(result.is_some());
                 assert_eq!(result.unwrap(), symbol);
+            }
+        }
+    }
+
+    #[test]
+    fn test_define_resolve_builtins() {
+        let global = Rc::new(RefCell::new(SymbolTable::new()));
+        let first_local = SymbolTable::new_enclosed(global.clone());
+
+        let second_local = SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local.clone())));
+
+        let expected = [
+            Symbol {
+                name: "a".to_string(),
+                scope: BUILTINSCOPE.to_string(),
+                index: 0,
+            },
+            Symbol {
+                name: "c".to_string(),
+                scope: BUILTINSCOPE.to_string(),
+                index: 1,
+            },
+            Symbol {
+                name: "e".to_string(),
+                scope: BUILTINSCOPE.to_string(),
+                index: 2,
+            },
+            Symbol {
+                name: "f".to_string(),
+                scope: BUILTINSCOPE.to_string(),
+                index: 3,
+            },
+        ];
+
+        for (idx, symbol) in expected.iter().enumerate() {
+            global
+                .borrow_mut()
+                .define_builtin(idx as u16, symbol.name.clone());
+        }
+
+        for table in [global.borrow().clone(), first_local, second_local] {
+            for symbol in &expected {
+                let result = table.resolve(&symbol.name);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), *symbol);
             }
         }
     }

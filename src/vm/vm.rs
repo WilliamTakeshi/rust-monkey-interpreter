@@ -3,9 +3,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::code::code::string;
+use crate::code::code::{string, Definition};
 use crate::code::code::{Instructions, OpCode};
 use crate::compiler::compiler::Bytecode;
+use crate::object::buildin::{get_builtin_functions, BUILTINS};
 use crate::object::object::Object;
 use anyhow::{anyhow, Result};
 
@@ -213,9 +214,9 @@ impl Vm {
                 }
                 Ok(OpCode::OpCall) => {
                     let num_args = ins[ip + 1];
-
                     self.current_frame().ip += 1;
-                    self.call_function(num_args as usize)?;
+
+                    self.execute_call(num_args as usize)?;
                 }
                 Ok(OpCode::OpReturnValue) => {
                     let return_value = self.pop();
@@ -248,16 +249,70 @@ impl Vm {
 
                     self.push(self.stack[frame.base_pointer + local_index as usize].clone())?;
                 }
+                Ok(OpCode::OpGetBuiltin) => {
+                    let builtin_index = ins[ip + 1];
+                    self.current_frame().ip += 1;
+
+                    let buildin_functions = get_builtin_functions();
+                    let definition = buildin_functions.get(BUILTINS[builtin_index as usize]);
+
+                    match definition {
+                        Some(Object::Buildin(..)) => {
+                            self.push(definition.unwrap().clone())?;
+                        }
+                        _ => return Err(anyhow!("builtin not found")),
+                    }
+                }
                 _ => todo!(),
             }
         }
         Ok(())
     }
 
-    fn call_function(&mut self, num_args: usize) -> Result<()> {
-        let function = self.stack[self.sp - 1 - num_args].clone();
+    fn execute_call(&mut self, num_args: usize) -> Result<()> {
+        let callee = self.stack[self.sp - 1 - num_args].clone();
 
-        match &function {
+        match callee {
+            Object::CompiledFunction { .. } => {
+                self.call_function(callee, num_args)?;
+            }
+            Object::Buildin(..) => {
+                self.call_buildin(callee, num_args)?;
+            }
+            _ => return Err(anyhow!("calling non-function and non-buildin")),
+        }
+        Ok(())
+    }
+
+    fn call_buildin(&mut self, callee: Object, num_args: usize) -> Result<()> {
+        let mut args = vec![];
+
+        for i in 0..num_args {
+            args.push(self.stack[self.sp - num_args + i].clone());
+        }
+
+        let result = match callee {
+            Object::Buildin(_, num_params, f) => {
+                if num_params != num_args as u32 {
+                    Object::Err(format!(
+                        "wrong number of arguments. want={}, got={}",
+                        num_params, num_args
+                    ))
+                } else {
+                    f(args)
+                }
+            }
+            _ => return Err(anyhow!("calling non-buildin")),
+        };
+
+        self.sp -= num_args + 1;
+        self.push(result)?;
+
+        Ok(())
+    }
+
+    fn call_function(&mut self, callee: Object, num_args: usize) -> Result<()> {
+        match &callee {
             Object::CompiledFunction {
                 num_locals,
                 num_params,
@@ -270,7 +325,7 @@ impl Vm {
                         num_args
                     ));
                 }
-                let frame = Frame::new(function.clone(), self.sp - num_args);
+                let frame = Frame::new(callee.clone(), self.sp - num_args);
                 self.push_frame(frame.clone());
                 self.sp = frame.base_pointer + *num_locals as usize;
             }
@@ -1099,5 +1154,97 @@ mod tests {
         ];
 
         run_vm_tests_expect_error(tests);
+    }
+
+    #[test]
+    fn test_builtins_functions() {
+        let tests = vec![
+            VmTestCase {
+                input: r#"len("");"#.to_string(),
+                expected: vec![Object::Integer(0)],
+            },
+            VmTestCase {
+                input: r#"len("four");"#.to_string(),
+                expected: vec![Object::Integer(4)],
+            },
+            VmTestCase {
+                input: r#"len("hello world");"#.to_string(),
+                expected: vec![Object::Integer(11)],
+            },
+            VmTestCase {
+                input: r#"len(1);"#.to_string(),
+                expected: vec![Object::Err(
+                    "argument to 'len' not supported, got INTEGER".to_string(),
+                )],
+            },
+            VmTestCase {
+                input: r#"len("", "");"#.to_string(),
+                expected: vec![Object::Err(
+                    "wrong number of arguments. want=1, got=2".to_string(),
+                )],
+            },
+            VmTestCase {
+                input: r#"len([1, 2, 3])"#.to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: r#"len([])"#.to_string(),
+                expected: vec![Object::Integer(0)],
+            },
+            VmTestCase {
+                input: r#"puts("hello", "world")"#.to_string(),
+                expected: vec![Object::Err(
+                    "wrong number of arguments. want=1, got=2".to_string(),
+                )],
+            },
+            VmTestCase {
+                input: r#"first([1,2,3])"#.to_string(),
+                expected: vec![Object::Integer(1)],
+            },
+            VmTestCase {
+                input: r#"first([])"#.to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: r#"first(1)"#.to_string(),
+                expected: vec![Object::Err(
+                    "argument to 'first' not supported, got INTEGER".to_string(),
+                )],
+            },
+            VmTestCase {
+                input: r#"last(1)"#.to_string(),
+                expected: vec![Object::Err(
+                    "argument to 'last' not supported, got INTEGER".to_string(),
+                )],
+            },
+            VmTestCase {
+                input: r#"last([1,2,3])"#.to_string(),
+                expected: vec![Object::Integer(3)],
+            },
+            VmTestCase {
+                input: r#"last([])"#.to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: r#"rest([1,2,3])"#.to_string(),
+                expected: vec![Object::Array(vec![Object::Integer(2), Object::Integer(3)])],
+            },
+            VmTestCase {
+                input: r#"rest([])"#.to_string(),
+                expected: vec![Object::Null],
+            },
+            VmTestCase {
+                input: r#"push([], 1)"#.to_string(),
+                expected: vec![Object::Array(vec![Object::Integer(1)])],
+            },
+            VmTestCase {
+                input: r#"push(1, 1)"#.to_string(),
+                expected: vec![Object::Err(
+                    "argument to 'push' not supported, got INTEGER".to_string(),
+                )],
+            },
+        ];
+
+        run_vm_tests(tests);
     }
 }
