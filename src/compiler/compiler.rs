@@ -99,9 +99,8 @@ impl Compiler {
                 Ok(())
             }
             Statement::Let(ident, expr) => {
-                self.compile_expression(expr)?;
-
                 let symbol = self.symbol_table.borrow_mut().define(ident);
+                self.compile_expression(expr)?;
 
                 if symbol.scope == GLOBALSCOPE {
                     self.emit(OpCode::OpSetGlobal, vec![symbol.index]);
