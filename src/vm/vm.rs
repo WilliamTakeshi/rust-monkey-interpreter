@@ -269,10 +269,25 @@ impl Vm {
                 }
                 Ok(OpCode::OpClosure) => {
                     let const_index = u16::from_be_bytes(ins[ip + 1..=ip + 2].try_into().unwrap());
-                    let _num_free_var = ins[ip + 3];
+                    let num_free_var = ins[ip + 3];
                     self.current_frame().ip += 3;
 
-                    self.push_closure(const_index)?;
+                    self.push_closure(const_index, num_free_var)?;
+                }
+                Ok(OpCode::OpGetFree) => {
+                    let free_index = ins[ip + 1];
+                    self.current_frame().ip += 1;
+
+                    let current_closure = self.current_frame().cl.clone();
+
+                    match current_closure {
+                        Object::Closure { free, .. } => {
+                            let free = free[free_index as usize].clone();
+
+                            self.push(free)?;
+                        }
+                        _ => todo!(),
+                    }
                 }
                 _ => todo!(),
             }
@@ -280,13 +295,15 @@ impl Vm {
         Ok(())
     }
 
-    fn push_closure(&mut self, const_index: u16) -> Result<()> {
+    fn push_closure(&mut self, const_index: u16, num_free_var: u8) -> Result<()> {
         let obj = self.constants[const_index as usize].clone();
         match obj {
             Object::CompiledFunction { .. } => {
+                let free = self.stack[self.sp - num_free_var as usize..self.sp].to_vec();
+                self.sp -= num_free_var as usize;
                 self.push(Object::Closure {
                     fn_obj: Rc::new(obj),
-                    free: vec![],
+                    free,
                 })?;
             }
             _ => return Err(anyhow!("expected CompiledFunction, got {:?}", obj)),
@@ -1270,6 +1287,85 @@ mod tests {
                 expected: vec![Object::Err(
                     "argument to 'push' not supported, got INTEGER".to_string(),
                 )],
+            },
+        ];
+
+        run_vm_tests(tests);
+    }
+    #[test]
+    fn test_closures() {
+        let tests = vec![
+            VmTestCase {
+                input: "
+                let newClosure = fn(a) {
+                    fn() { a; };
+                };
+                let closure = newClosure(99);
+                closure();"
+                    .to_string(),
+                expected: vec![Object::Integer(99)],
+            },
+            VmTestCase {
+                input: "
+                let newAdder = fn(a, b) {
+                    fn(c) { a + b + c };
+                };
+                let adder = newAdder(1, 2);
+                adder(8);"
+                    .to_string(),
+                expected: vec![Object::Integer(11)],
+            },
+            VmTestCase {
+                input: "
+                let newAdder = fn(a, b) {
+                    let c = a + b;
+                    fn(d) { c + d };
+                };
+                let adder = newAdder(1, 2);
+                adder(8);"
+                    .to_string(),
+                expected: vec![Object::Integer(11)],
+            },
+            VmTestCase {
+                input: "
+                let newAdderOuter = fn(a, b) {
+                    let c = a + b;
+                    fn(d) {
+                        let e = d + c;
+                        fn(f) { e + f; };
+                    };
+                };
+                let newAdderInner = newAdderOuter(1, 2)
+                let adder = newAdderInner(3);
+                adder(8);"
+                    .to_string(),
+                expected: vec![Object::Integer(14)],
+            },
+            VmTestCase {
+                input: "
+                let a = 1;
+                let newAdderOuter = fn(b) {
+                    fn(c) {
+                        fn(d) { a + b + c + d };
+                    };
+                };
+                let newAdderInner = newAdderOuter(2)
+                let adder = newAdderInner(3);
+                adder(8);"
+                    .to_string(),
+                expected: vec![Object::Integer(14)],
+            },
+            VmTestCase {
+                input: "
+                let newClosure = fn(a, b) {
+                    let one = fn() { a; };
+                    let two = fn() { b; };
+                    fn() { one() + two(); };
+                };
+                let closure = newClosure(9, 90);
+                closure();"
+                    .to_string(),
+                expected: vec![Object::Integer(99)],
             },
         ];
 

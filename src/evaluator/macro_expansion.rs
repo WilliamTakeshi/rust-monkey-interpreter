@@ -191,8 +191,6 @@ mod tests {
         assert!(env.get(String::from("function")).is_none());
         assert!(env.get(String::from("mymacro")).is_some());
 
-        dbg!(env.get(String::from("mymacro")));
-
         assert_eq!(
             env.get(String::from("mymacro")).unwrap(),
             Object::Macro {

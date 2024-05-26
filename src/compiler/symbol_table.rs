@@ -102,7 +102,6 @@ impl SymbolTable {
 
                 let free = self.define_free(obj.clone());
 
-                dbg!(outer);
                 return Some(free);
             } else {
                 return None;
@@ -682,8 +681,6 @@ mod tests {
         for (mut local, expected) in tests {
             for (_, symbol) in expected {
                 let result = local.resolve(&symbol.name);
-                dbg!(&symbol);
-                dbg!(&result);
                 assert!(result.is_some());
                 assert_eq!(result.unwrap(), symbol);
             }

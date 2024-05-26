@@ -263,12 +263,7 @@ impl Compiler {
                     }
                 }
 
-                dbg!("AAA");
-                dbg!(&self.symbol_table.borrow().free_symbols);
-
                 self.compile_block(body)?;
-                dbg!("BBB");
-                dbg!(&self.symbol_table.borrow().free_symbols);
 
                 if self.last_instruction_is(OpCode::OpPop) {
                     self.replace_last_pop_with_return();
@@ -280,10 +275,6 @@ impl Compiler {
 
                 let free_symbols = self.symbol_table.borrow().free_symbols.clone();
                 let free_symbols_len = free_symbols.len();
-                dbg!("FNLITERAL");
-                // dbg!(&params);
-                // dbg!(&free_symbols);
-                // dbg!(&self.symbol_table.borrow().store);
                 let num_locals = self.symbol_table.borrow().num_definitions;
                 let instructions = self.leave_scope();
 

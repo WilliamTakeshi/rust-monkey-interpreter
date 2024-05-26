@@ -2,7 +2,7 @@ use crate::{code::code::Instructions, object::object::Object};
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    cl: Object,
+    pub cl: Object,
     pub ip: usize,
     pub base_pointer: usize,
 }
