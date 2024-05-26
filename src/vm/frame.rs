@@ -1,5 +1,4 @@
 use crate::{code::code::Instructions, object::object::Object};
-use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Frame {

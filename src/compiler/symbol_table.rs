@@ -5,6 +5,7 @@ type SymbolScope = String;
 pub const GLOBALSCOPE: &str = "GLOBAL";
 pub const LOCALSCOPE: &str = "LOCAL";
 pub const BUILTINSCOPE: &str = "BUILTIN";
+pub const FREESCOPE: &str = "FREE";
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Symbol {
@@ -17,8 +18,9 @@ pub struct Symbol {
 pub struct SymbolTable {
     pub outer: Option<Rc<RefCell<SymbolTable>>>,
 
-    store: HashMap<String, Symbol>,
+    pub store: HashMap<String, Symbol>,
     pub num_definitions: u16,
+    pub free_symbols: Vec<Symbol>,
 }
 
 impl SymbolTable {
@@ -27,6 +29,7 @@ impl SymbolTable {
             outer: None,
             store: HashMap::new(),
             num_definitions: 0,
+            free_symbols: Vec::new(),
         }
     }
 
@@ -35,6 +38,7 @@ impl SymbolTable {
             outer: Some(outer),
             store: HashMap::new(),
             num_definitions: 0,
+            free_symbols: Vec::new(),
         }
     }
 
@@ -70,12 +74,39 @@ impl SymbolTable {
         symbol
     }
 
-    pub fn resolve(&self, name: &str) -> Option<Symbol> {
+    pub fn define_free(&mut self, original: Symbol) -> Symbol {
+        self.free_symbols.push(original.clone());
+
+        let symbol = Symbol {
+            name: original.name.clone(),
+            scope: FREESCOPE.to_string(),
+            index: self.free_symbols.len() as u16 - 1,
+        };
+
+        self.store.insert(symbol.name.clone(), symbol.clone());
+
+        symbol
+    }
+
+    pub fn resolve(&mut self, name: &str) -> Option<Symbol> {
         let obj = self.store.get(name);
 
         if obj.is_none() && self.outer.is_some() {
-            let outer = self.outer.as_ref().unwrap();
-            return outer.borrow().resolve(name);
+            let outer = self.outer.clone().unwrap();
+            let obj_outer = outer.borrow_mut().resolve(name);
+
+            if let Some(obj) = obj_outer {
+                if obj.scope == GLOBALSCOPE || obj.scope == BUILTINSCOPE {
+                    return Some(obj);
+                }
+
+                let free = self.define_free(obj.clone());
+
+                dbg!(outer);
+                return Some(free);
+            } else {
+                return None;
+            }
         }
 
         obj.cloned()
@@ -195,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_resolve_local() {
-        let mut global = Rc::new(RefCell::new(SymbolTable::new()));
+        let global = Rc::new(RefCell::new(SymbolTable::new()));
 
         global.borrow_mut().define("a".to_string());
         global.borrow_mut().define("b".to_string());
@@ -248,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_resolve_nested_local() {
-        let mut global = Rc::new(RefCell::new(SymbolTable::new()));
+        let global = Rc::new(RefCell::new(SymbolTable::new()));
 
         global.borrow_mut().define("a".to_string());
         global.borrow_mut().define("b".to_string());
@@ -320,7 +351,7 @@ mod tests {
                         },
                     ),
                     (
-                        "f".to_string(),
+                        "e".to_string(),
                         Symbol {
                             name: "e".to_string(),
                             scope: LOCALSCOPE.to_string(),
@@ -328,7 +359,7 @@ mod tests {
                         },
                     ),
                     (
-                        "e".to_string(),
+                        "f".to_string(),
                         Symbol {
                             name: "f".to_string(),
                             scope: LOCALSCOPE.to_string(),
@@ -339,7 +370,7 @@ mod tests {
             ),
         ];
 
-        for (local, expected) in tests {
+        for (mut local, expected) in tests {
             for (_, symbol) in expected {
                 let result = local.resolve(&symbol.name);
                 assert!(result.is_some());
@@ -351,9 +382,9 @@ mod tests {
     #[test]
     fn test_define_resolve_builtins() {
         let global = Rc::new(RefCell::new(SymbolTable::new()));
-        let first_local = SymbolTable::new_enclosed(global.clone());
+        let first_local = Rc::new(RefCell::new(SymbolTable::new_enclosed(global.clone())));
 
-        let second_local = SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local.clone())));
+        let second_local = Rc::new(RefCell::new(SymbolTable::new_enclosed(first_local.clone())));
 
         let expected = [
             Symbol {
@@ -384,12 +415,285 @@ mod tests {
                 .define_builtin(idx as u16, symbol.name.clone());
         }
 
-        for table in [global.borrow().clone(), first_local, second_local] {
-            for symbol in &expected {
-                let result = table.resolve(&symbol.name);
+        for symbol in &expected {
+            let result = global.borrow_mut().resolve(&symbol.name);
+            assert!(result.is_some());
+            assert_eq!(result.unwrap(), *symbol);
+        }
+
+        for symbol in &expected {
+            let result: Option<Symbol> = first_local.borrow_mut().resolve(&symbol.name);
+            assert!(result.is_some());
+            assert_eq!(result.unwrap(), *symbol);
+        }
+
+        for symbol in &expected {
+            let result: Option<Symbol> = second_local.borrow_mut().resolve(&symbol.name);
+            assert!(result.is_some());
+            assert_eq!(result.unwrap(), *symbol);
+        }
+    }
+
+    #[test]
+    fn test_resolve_free() {
+        let global = Rc::new(RefCell::new(SymbolTable::new()));
+
+        global.borrow_mut().define("a".to_string());
+        global.borrow_mut().define("b".to_string());
+
+        let mut first_local = SymbolTable::new_enclosed(global);
+        first_local.define("c".to_string());
+        first_local.define("d".to_string());
+
+        let mut second_local =
+            SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local.clone())));
+        second_local.define("e".to_string());
+        second_local.define("f".to_string());
+
+        let mut third_local =
+            SymbolTable::new_enclosed(Rc::new(RefCell::new(second_local.clone())));
+        third_local.define("g".to_string());
+        third_local.define("h".to_string());
+
+        let tests = vec![
+            (
+                first_local,
+                HashMap::from([
+                    (
+                        "a".to_string(),
+                        Symbol {
+                            name: "a".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "b".to_string(),
+                        Symbol {
+                            name: "b".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "c".to_string(),
+                        Symbol {
+                            name: "c".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d".to_string(),
+                        Symbol {
+                            name: "d".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                ]),
+            ),
+            (
+                second_local,
+                HashMap::from([
+                    (
+                        "a".to_string(),
+                        Symbol {
+                            name: "a".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "b".to_string(),
+                        Symbol {
+                            name: "b".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "c".to_string(),
+                        Symbol {
+                            name: "c".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d".to_string(),
+                        Symbol {
+                            name: "d".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "e".to_string(),
+                        Symbol {
+                            name: "e".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "f".to_string(),
+                        Symbol {
+                            name: "f".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                ]),
+            ),
+            (
+                third_local.clone(),
+                HashMap::from([
+                    (
+                        "a".to_string(),
+                        Symbol {
+                            name: "a".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "b".to_string(),
+                        Symbol {
+                            name: "b".to_string(),
+                            scope: GLOBALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "c".to_string(),
+                        Symbol {
+                            name: "c".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "d".to_string(),
+                        Symbol {
+                            name: "d".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                    (
+                        "e".to_string(),
+                        Symbol {
+                            name: "e".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 2,
+                        },
+                    ),
+                    (
+                        "f".to_string(),
+                        Symbol {
+                            name: "f".to_string(),
+                            scope: FREESCOPE.to_string(),
+                            index: 3,
+                        },
+                    ),
+                    (
+                        "g".to_string(),
+                        Symbol {
+                            name: "g".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 0,
+                        },
+                    ),
+                    (
+                        "h".to_string(),
+                        Symbol {
+                            name: "h".to_string(),
+                            scope: LOCALSCOPE.to_string(),
+                            index: 1,
+                        },
+                    ),
+                ]),
+            ),
+        ];
+
+        for (mut local, expected) in tests {
+            for (_, symbol) in expected {
+                let result = local.resolve(&symbol.name);
                 assert!(result.is_some());
-                assert_eq!(result.unwrap(), *symbol);
+                assert_eq!(result.clone().unwrap().name, symbol.name);
+                assert_eq!(result.unwrap().scope, symbol.scope);
             }
+        }
+    }
+
+    #[test]
+    fn test_resolve_unresolvable_free() {
+        let global = Rc::new(RefCell::new(SymbolTable::new()));
+
+        global.borrow_mut().define("a".to_string());
+
+        let mut first_local = SymbolTable::new_enclosed(global);
+        first_local.define("c".to_string());
+
+        let mut second_local =
+            SymbolTable::new_enclosed(Rc::new(RefCell::new(first_local.clone())));
+        second_local.define("e".to_string());
+        second_local.define("f".to_string());
+
+        let tests = vec![(
+            second_local.clone(),
+            HashMap::from([
+                (
+                    "a".to_string(),
+                    Symbol {
+                        name: "a".to_string(),
+                        scope: GLOBALSCOPE.to_string(),
+                        index: 0,
+                    },
+                ),
+                (
+                    "c".to_string(),
+                    Symbol {
+                        name: "c".to_string(),
+                        scope: FREESCOPE.to_string(),
+                        index: 0,
+                    },
+                ),
+                (
+                    "e".to_string(),
+                    Symbol {
+                        name: "e".to_string(),
+                        scope: LOCALSCOPE.to_string(),
+                        index: 0,
+                    },
+                ),
+                (
+                    "f".to_string(),
+                    Symbol {
+                        name: "f".to_string(),
+                        scope: LOCALSCOPE.to_string(),
+                        index: 1,
+                    },
+                ),
+            ]),
+        )];
+
+        for (mut local, expected) in tests {
+            for (_, symbol) in expected {
+                let result = local.resolve(&symbol.name);
+                dbg!(&symbol);
+                dbg!(&result);
+                assert!(result.is_some());
+                assert_eq!(result.unwrap(), symbol);
+            }
+        }
+
+        let unresolvable = ["b".to_string(), "d".to_string()];
+
+        for unresolvable_symbol in unresolvable {
+            let result = second_local.resolve(&unresolvable_symbol);
+            assert!(result.is_none());
         }
     }
 }

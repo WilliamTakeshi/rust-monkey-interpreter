@@ -32,6 +32,7 @@ pub enum OpCode {
     OpSetLocal = 25,
     OpGetBuiltin = 26,
     OpClosure = 27,
+    OpGetFree = 28,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -67,6 +68,7 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpSetLocal as u8 => Ok(OpCode::OpSetLocal),
             x if x == OpCode::OpGetBuiltin as u8 => Ok(OpCode::OpGetBuiltin),
             x if x == OpCode::OpClosure as u8 => Ok(OpCode::OpClosure),
+            x if x == OpCode::OpGetFree as u8 => Ok(OpCode::OpGetFree),
             _ => Err(()),
         }
     }
@@ -238,6 +240,10 @@ impl OpCode {
             &OpCode::OpClosure => Definition {
                 name: String::from("OpClosure"),
                 operand_widths: vec![2, 1],
+            },
+            &OpCode::OpGetFree => Definition {
+                name: String::from("OpGetFree"),
+                operand_widths: vec![1],
             },
         }
     }
