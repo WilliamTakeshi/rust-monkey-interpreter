@@ -1,16 +1,17 @@
 use crate::{code::code::Instructions, object::object::Object};
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct Frame {
-    function: Object,
+    cl: Object,
     pub ip: usize,
     pub base_pointer: usize,
 }
 
 impl Frame {
-    pub fn new(function: Object, base_pointer: usize) -> Self {
+    pub fn new(cl: Object, base_pointer: usize) -> Self {
         Frame {
-            function,
+            cl,
             // Weird fix, I am using a usize::max_value() to indicate that the frame is new (-1)
             ip: usize::max_value(),
             base_pointer: base_pointer,
@@ -18,9 +19,12 @@ impl Frame {
     }
 
     pub fn instructions(&self) -> &Instructions {
-        match &self.function {
-            Object::CompiledFunction { instructions, .. } => instructions,
-            _ => panic!("Expected CompiledFunction, got {:?}", self.function),
+        match &self.cl {
+            Object::Closure { fn_obj, .. } => match &**fn_obj {
+                Object::CompiledFunction { instructions, .. } => instructions,
+                _ => panic!("Expected CompiledFunction, got {:?}", fn_obj),
+            },
+            _ => panic!("Expected Closure, got {:?}", self.cl),
         }
     }
 }

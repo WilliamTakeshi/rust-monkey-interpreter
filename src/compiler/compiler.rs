@@ -281,7 +281,7 @@ impl Compiler {
                     num_params: params.len() as u16,
                 });
 
-                self.emit(OpCode::OpConstant, vec![constant]);
+                self.emit(OpCode::OpClosure, vec![constant, 0]);
 
                 Ok(())
             }
@@ -961,7 +961,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpClosure, vec![2, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -983,7 +983,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpClosure, vec![2, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1005,7 +1005,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpClosure, vec![2, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1108,7 +1108,7 @@ mod tests {
                 num_params: 0,
             }],
             expected_instructions: vec![
-                make(OpCode::OpConstant, vec![0]),
+                make(OpCode::OpClosure, vec![0, 0]),
                 make(OpCode::OpPop, vec![]),
             ],
         }];
@@ -1134,7 +1134,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![1]), // The compiled function
+                    make(OpCode::OpClosure, vec![1, 0]), // The compiled function
                     make(OpCode::OpCall, vec![0]),
                     make(OpCode::OpPop, vec![]),
                 ],
@@ -1154,7 +1154,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![1]), // The compiled function
+                    make(OpCode::OpClosure, vec![1, 0]), // The compiled function
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpCall, vec![0]),
@@ -1172,7 +1172,7 @@ mod tests {
                     Object::Integer(24),
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpClosure, vec![0, 0]),
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -1198,7 +1198,7 @@ mod tests {
                     Object::Integer(26),
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpClosure, vec![0, 0]),
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -1223,7 +1223,7 @@ mod tests {
                     Object::Integer(24),
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpClosure, vec![0, 0]),
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -1257,7 +1257,7 @@ mod tests {
                     Object::Integer(26),
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpClosure, vec![0, 0]),
                     make(OpCode::OpSetGlobal, vec![0]),
                     make(OpCode::OpGetGlobal, vec![0]),
                     make(OpCode::OpConstant, vec![1]),
@@ -1292,7 +1292,7 @@ mod tests {
                 expected_instructions: vec![
                     make(OpCode::OpConstant, vec![0]),
                     make(OpCode::OpSetGlobal, vec![0]),
-                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpClosure, vec![1, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1313,7 +1313,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![1]),
+                    make(OpCode::OpClosure, vec![1, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1339,7 +1339,7 @@ mod tests {
                     },
                 ],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![2]),
+                    make(OpCode::OpClosure, vec![2, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },
@@ -1379,7 +1379,7 @@ mod tests {
                     num_params: 0,
                 }],
                 expected_instructions: vec![
-                    make(OpCode::OpConstant, vec![0]),
+                    make(OpCode::OpClosure, vec![0, 0]),
                     make(OpCode::OpPop, vec![]),
                 ],
             },

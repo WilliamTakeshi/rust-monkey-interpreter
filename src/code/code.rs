@@ -31,6 +31,7 @@ pub enum OpCode {
     OpGetLocal = 24,
     OpSetLocal = 25,
     OpGetBuiltin = 26,
+    OpClosure = 27,
 }
 
 impl TryFrom<u8> for OpCode {
@@ -65,6 +66,7 @@ impl TryFrom<u8> for OpCode {
             x if x == OpCode::OpGetLocal as u8 => Ok(OpCode::OpGetLocal),
             x if x == OpCode::OpSetLocal as u8 => Ok(OpCode::OpSetLocal),
             x if x == OpCode::OpGetBuiltin as u8 => Ok(OpCode::OpGetBuiltin),
+            x if x == OpCode::OpClosure as u8 => Ok(OpCode::OpClosure),
             _ => Err(()),
         }
     }
@@ -115,9 +117,9 @@ pub fn format_instruction(
         1 => {
             format!("{} {}", def.name, operands[0])
         }
-        // 2 => {
-        //     format!("{} {} {}", def.name, operands[0], operands[1])
-        // }
+        2 => {
+            format!("{} {} {}", def.name, operands[0], operands[1])
+        }
         _ => format!("ERROR: unhandled operand_count for {}", def.name),
     }
 }
@@ -233,6 +235,10 @@ impl OpCode {
                 name: String::from("OpGetBuiltin"),
                 operand_widths: vec![1],
             },
+            &OpCode::OpClosure => Definition {
+                name: String::from("OpClosure"),
+                operand_widths: vec![2, 1],
+            },
         }
     }
 }
@@ -300,6 +306,11 @@ mod tests {
                 vec![255],
                 vec![OpCode::OpGetLocal as u8, 255],
             ),
+            (
+                OpCode::OpClosure,
+                vec![65534, 255],
+                vec![OpCode::OpClosure as u8, 255, 254, 255],
+            ),
         ];
 
         for (op, operands, expected) in tests {
@@ -319,6 +330,7 @@ mod tests {
             (OpCode::OpConstant, vec![1], 2),
             (OpCode::OpConstant, vec![65535], 2),
             (OpCode::OpGetLocal, vec![255], 1),
+            (OpCode::OpClosure, vec![65534, 255], 3),
         ];
 
         for (op, operands, bytes_read) in tests {
@@ -352,11 +364,13 @@ mod tests {
                     make(OpCode::OpGetLocal, vec![1]),
                     make(OpCode::OpConstant, vec![2]),
                     make(OpCode::OpConstant, vec![65535]),
+                    make(OpCode::OpClosure, vec![65535, 255]),
                 ],
                 "0000 OpAdd
 0001 OpGetLocal 1
 0003 OpConstant 2
-0006 OpConstant 65535\n"
+0006 OpConstant 65535
+0009 OpClosure 65535 255\n"
                     .to_string(),
             ),
         ];

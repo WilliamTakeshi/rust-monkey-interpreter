@@ -34,6 +34,10 @@ pub enum Object {
         num_locals: u16,
         num_params: u16,
     },
+    Closure {
+        fn_obj: Rc<Object>,
+        free: Vec<Object>,
+    },
 }
 
 impl Hash for Object {
@@ -63,6 +67,7 @@ impl Object {
             Self::Quote { .. } => String::from("QUOTE"),
             Self::Macro { .. } => String::from("MACRO"),
             Self::CompiledFunction { .. } => String::from("COMPILED_FUNCTION"),
+            Self::Closure { .. } => String::from("CLOSURE"),
         }
     }
 }

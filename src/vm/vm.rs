@@ -43,7 +43,11 @@ impl Vm {
             num_locals: 0,
             num_params: 0,
         };
-        let main_frame = Frame::new(main_fn, 0);
+        let main_closure = Object::Closure {
+            fn_obj: Rc::new(main_fn),
+            free: vec![],
+        };
+        let main_frame = Frame::new(main_closure, 0);
 
         let frames = vec![main_frame];
 
@@ -263,8 +267,29 @@ impl Vm {
                         _ => return Err(anyhow!("builtin not found")),
                     }
                 }
+                Ok(OpCode::OpClosure) => {
+                    let const_index = u16::from_be_bytes(ins[ip + 1..=ip + 2].try_into().unwrap());
+                    let _num_free_var = ins[ip + 3];
+                    self.current_frame().ip += 3;
+
+                    self.push_closure(const_index)?;
+                }
                 _ => todo!(),
             }
+        }
+        Ok(())
+    }
+
+    fn push_closure(&mut self, const_index: u16) -> Result<()> {
+        let obj = self.constants[const_index as usize].clone();
+        match obj {
+            Object::CompiledFunction { .. } => {
+                self.push(Object::Closure {
+                    fn_obj: Rc::new(obj),
+                    free: vec![],
+                })?;
+            }
+            _ => return Err(anyhow!("expected CompiledFunction, got {:?}", obj)),
         }
         Ok(())
     }
@@ -273,8 +298,8 @@ impl Vm {
         let callee = self.stack[self.sp - 1 - num_args].clone();
 
         match callee {
-            Object::CompiledFunction { .. } => {
-                self.call_function(callee, num_args)?;
+            Object::Closure { .. } => {
+                self.call_closure(callee, num_args)?;
             }
             Object::Buildin(..) => {
                 self.call_buildin(callee, num_args)?;
@@ -311,24 +336,27 @@ impl Vm {
         Ok(())
     }
 
-    fn call_function(&mut self, callee: Object, num_args: usize) -> Result<()> {
+    fn call_closure(&mut self, callee: Object, num_args: usize) -> Result<()> {
         match &callee {
-            Object::CompiledFunction {
-                num_locals,
-                num_params,
-                ..
-            } => {
-                if *num_params != num_args as u16 {
-                    return Err(anyhow!(
-                        "wrong number of arguments. want={}, got={}",
-                        num_params,
-                        num_args
-                    ));
+            Object::Closure { fn_obj, .. } => match &**fn_obj {
+                Object::CompiledFunction {
+                    num_locals,
+                    num_params,
+                    ..
+                } => {
+                    if *num_params != num_args as u16 {
+                        return Err(anyhow!(
+                            "wrong number of arguments. want={}, got={}",
+                            num_params,
+                            num_args
+                        ));
+                    }
+                    let frame = Frame::new(callee.clone(), self.sp - num_args);
+                    self.push_frame(frame.clone());
+                    self.sp = frame.base_pointer + *num_locals as usize;
                 }
-                let frame = Frame::new(callee.clone(), self.sp - num_args);
-                self.push_frame(frame.clone());
-                self.sp = frame.base_pointer + *num_locals as usize;
-            }
+                _ => return Err(anyhow!("Expected CompiledFunction, got {:?}", fn_obj)),
+            },
             _ => return Err(anyhow!("Trying to call a non-function")),
         };
 
