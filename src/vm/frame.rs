@@ -13,7 +13,7 @@ impl Frame {
             cl,
             // Weird fix, I am using a usize::max_value() to indicate that the frame is new (-1)
             ip: usize::max_value(),
-            base_pointer: base_pointer,
+            base_pointer,
         }
     }
 

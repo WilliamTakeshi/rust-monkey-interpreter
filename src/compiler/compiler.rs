@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::ast::ast::{Expression, Infix, Prefix, Program, Statement};
 use crate::code::code::{make, Instructions, OpCode};
-use crate::object::buildin::{get_builtin_functions, BUILTINS};
+use crate::object::buildin::BUILTINS;
 use crate::object::object::Object;
 use anyhow::{anyhow, Result};
 
@@ -62,7 +62,7 @@ impl Compiler {
 
         Compiler {
             constants: vec![],
-            symbol_table: symbol_table,
+            symbol_table,
             scopes: vec![CompilationScope::new()],
             scope_index: 0,
         }
@@ -70,8 +70,8 @@ impl Compiler {
 
     pub fn new_with_state(symbol_table: Rc<RefCell<SymbolTable>>, constants: Vec<Object>) -> Self {
         Compiler {
-            constants: constants,
-            symbol_table: symbol_table,
+            constants,
+            symbol_table,
             scopes: vec![CompilationScope::new()],
             scope_index: 0,
         }
@@ -204,7 +204,7 @@ impl Compiler {
                 Ok(())
             }
             Expression::Ident(ident) => {
-                let mut maybe_symbol = None;
+                let maybe_symbol: Option<Symbol>;
                 {
                     maybe_symbol = self.symbol_table.borrow_mut().resolve(&ident).clone();
                 }
@@ -311,8 +311,7 @@ impl Compiler {
             .last_instruction
             .as_ref()
             .expect("Never called on empty scope")
-            .position
-            .clone();
+            .position;
 
         self.replace_instruction(last_pos, make(OpCode::OpReturnValue, vec![]));
 
@@ -323,9 +322,8 @@ impl Compiler {
     }
 
     fn replace_instruction(&mut self, pos: usize, new_instruction: Instructions) {
-        for i in 0..new_instruction.len() {
-            self.scopes[self.scope_index].instructions[pos + i] = new_instruction[i];
-        }
+        self.scopes[self.scope_index].instructions[pos..(new_instruction.len() + pos)]
+            .copy_from_slice(&new_instruction[..]);
     }
 
     fn change_operand(&mut self, op_pos: usize, operand: u16) {

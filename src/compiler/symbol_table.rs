@@ -43,12 +43,11 @@ impl SymbolTable {
     }
 
     pub fn define(&mut self, name: String) -> Symbol {
-        let scope: &str;
-        if self.outer.is_none() {
-            scope = GLOBALSCOPE;
+        let scope = if self.outer.is_none() {
+            GLOBALSCOPE
         } else {
-            scope = LOCALSCOPE;
-        }
+            LOCALSCOPE
+        };
 
         let symbol = Symbol {
             name: name.clone(),

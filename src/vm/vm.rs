@@ -1,10 +1,8 @@
-use core::num;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::code::code::{string, Definition};
-use crate::code::code::{Instructions, OpCode};
+use crate::code::code::OpCode;
 use crate::compiler::compiler::Bytecode;
 use crate::object::buildin::{get_builtin_functions, BUILTINS};
 use crate::object::object::Object;
@@ -17,7 +15,7 @@ pub const STACK_SIZE: usize = 50;
 // pub const GLOBAL_SIZE: usize = 2048;
 pub const GLOBAL_SIZE: usize = 50;
 // const GLOBAL_SIZE: usize = 65536;
-pub const MAX_FRAMES: usize = 1024;
+// pub const MAX_FRAMES: usize = 1024;
 
 pub const TRUE: Object = Object::Boolean(true);
 pub const FALSE: Object = Object::Boolean(false);
@@ -123,11 +121,7 @@ impl Vm {
                     let const_index = u16::from_be_bytes(ins[ip + 1..=ip + 2].try_into().unwrap());
                     self.current_frame().ip += 2;
 
-                    let result = self.push(self.constants[const_index as usize].clone());
-
-                    if let Err(_) = result {
-                        return result;
-                    }
+                    self.push(self.constants[const_index as usize].clone())?;
                 }
                 Ok(op)
                     if op == OpCode::OpAdd
@@ -445,7 +439,7 @@ impl Vm {
         let operand = self.pop();
         match operand {
             Object::Integer(operand) => self.push(Object::Integer(-operand)),
-            _ => return Err(anyhow!("unsupported type for OpMinus")),
+            _ => Err(anyhow!("unsupported type for OpMinus")),
         }
     }
 

@@ -128,120 +128,120 @@ pub fn format_instruction(
 
 impl OpCode {
     fn to_definition(&self) -> Definition {
-        match self {
-            &OpCode::OpConstant => Definition {
+        match *self {
+            OpCode::OpConstant => Definition {
                 name: String::from("OpConstant"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpAdd => Definition {
+            OpCode::OpAdd => Definition {
                 name: String::from("OpAdd"),
                 operand_widths: vec![],
             },
-            &OpCode::OpPop => Definition {
+            OpCode::OpPop => Definition {
                 name: String::from("OpPop"),
                 operand_widths: vec![],
             },
-            &OpCode::OpSub => Definition {
+            OpCode::OpSub => Definition {
                 name: String::from("OpSub"),
                 operand_widths: vec![],
             },
-            &OpCode::OpMult => Definition {
+            OpCode::OpMult => Definition {
                 name: String::from("OpMult"),
                 operand_widths: vec![],
             },
-            &OpCode::OpDiv => Definition {
+            OpCode::OpDiv => Definition {
                 name: String::from("OpDiv"),
                 operand_widths: vec![],
             },
-            &OpCode::OpTrue => Definition {
+            OpCode::OpTrue => Definition {
                 name: String::from("OpTrue"),
                 operand_widths: vec![],
             },
-            &OpCode::OpFalse => Definition {
+            OpCode::OpFalse => Definition {
                 name: String::from("OpFalse"),
                 operand_widths: vec![],
             },
-            &OpCode::OpEqual => Definition {
+            OpCode::OpEqual => Definition {
                 name: String::from("OpEqual"),
                 operand_widths: vec![],
             },
-            &OpCode::OpNotEqual => Definition {
+            OpCode::OpNotEqual => Definition {
                 name: String::from("OpNotEqual"),
                 operand_widths: vec![],
             },
-            &OpCode::OpGreaterThan => Definition {
+            OpCode::OpGreaterThan => Definition {
                 name: String::from("OpGreaterThan"),
                 operand_widths: vec![],
             },
-            &OpCode::OpMinus => Definition {
+            OpCode::OpMinus => Definition {
                 name: String::from("OpMinus"),
                 operand_widths: vec![],
             },
-            &OpCode::OpBang => Definition {
+            OpCode::OpBang => Definition {
                 name: String::from("OpBang"),
                 operand_widths: vec![],
             },
-            &OpCode::OpJumpNotTruthy => Definition {
+            OpCode::OpJumpNotTruthy => Definition {
                 name: String::from("OpJumpNotTruthy"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpJump => Definition {
+            OpCode::OpJump => Definition {
                 name: String::from("OpJump"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpNull => Definition {
+            OpCode::OpNull => Definition {
                 name: String::from("OpNull"),
                 operand_widths: vec![],
             },
-            &OpCode::OpSetGlobal => Definition {
+            OpCode::OpSetGlobal => Definition {
                 name: String::from("OpSetGlobal"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpGetGlobal => Definition {
+            OpCode::OpGetGlobal => Definition {
                 name: String::from("OpGetGlobal"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpArray => Definition {
+            OpCode::OpArray => Definition {
                 name: String::from("OpArray"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpHash => Definition {
+            OpCode::OpHash => Definition {
                 name: String::from("OpHash"),
                 operand_widths: vec![2],
             },
-            &OpCode::OpIndex => Definition {
+            OpCode::OpIndex => Definition {
                 name: String::from("OpIndex"),
                 operand_widths: vec![],
             },
-            &OpCode::OpCall => Definition {
+            OpCode::OpCall => Definition {
                 name: String::from("OpCall"),
                 operand_widths: vec![1],
             },
-            &OpCode::OpReturnValue => Definition {
+            OpCode::OpReturnValue => Definition {
                 name: String::from("OpReturnValue"),
                 operand_widths: vec![],
             },
-            &OpCode::OpReturn => Definition {
+            OpCode::OpReturn => Definition {
                 name: String::from("OpReturn"),
                 operand_widths: vec![],
             },
-            &OpCode::OpGetLocal => Definition {
+            OpCode::OpGetLocal => Definition {
                 name: String::from("OpGetLocal"),
                 operand_widths: vec![1],
             },
-            &OpCode::OpSetLocal => Definition {
+            OpCode::OpSetLocal => Definition {
                 name: String::from("OpSetLocal"),
                 operand_widths: vec![1],
             },
-            &OpCode::OpGetBuiltin => Definition {
+            OpCode::OpGetBuiltin => Definition {
                 name: String::from("OpGetBuiltin"),
                 operand_widths: vec![1],
             },
-            &OpCode::OpClosure => Definition {
+            OpCode::OpClosure => Definition {
                 name: String::from("OpClosure"),
                 operand_widths: vec![2, 1],
             },
-            &OpCode::OpGetFree => Definition {
+            OpCode::OpGetFree => Definition {
                 name: String::from("OpGetFree"),
                 operand_widths: vec![1],
             },
